@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astro911 · Crew Body &amp; Mind</title>
+<link rel="stylesheet" href="style.css">
+<script src="libs/socket.io.min.js"></script>
+<style>
+/* ---------- Music ---------- */
+.music-list li { align-items: flex-start; }      /* icon lines up with the track title */
+.music-title { font-weight: 600; }               /* the track title */
+.music-desc { color: var(--muted); font-size: .85rem; font-weight: 400; margin-top: 2px; line-height: 1.4; }  /* the track description */
+.music-list li.playing { border-color: var(--calm); }   /* the playing track has a green border */
+.music-list li.playing .ic { color: var(--calm); }      /* and a green ▶ icon */
+.music-now { color: var(--muted); margin: 14px 2px 0; display: flex; align-items: center; gap: 10px; }  /* the "Now playing" line */
+.eq { display: inline-flex; gap: 3px; align-items: flex-end; height: 16px; }  /* the little music bars */
+.eq span { width: 4px; height: 4px; background: var(--calm); border-radius: 2px; }  /* each bar (small when stopped) */
+.eq.on span { animation: eq .9s ease-in-out infinite; }  /* the bars bounce while music plays */
+.eq.on span:nth-child(2) { animation-delay: .15s; }      /* each bar bounces at a different time... */
+.eq.on span:nth-child(3) { animation-delay: .3s; }       /* ...so they look like... */
+.eq.on span:nth-child(4) { animation-delay: .45s; }      /* ...a music... */
+.eq.on span:nth-child(5) { animation-delay: .6s; }       /* ...equalizer */
+@keyframes eq { 0%, 100% { height: 4px; } 50% { height: 16px; } }  /* the bounce: short to tall and back */
+.music-pill { display: none; font-size: .8rem; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(110,231,183,.45); color: var(--calm); white-space: nowrap; }  /* the "♪ song" badge in the top bar */
+.music-pill.on { display: inline-block; }        /* shown only while music plays */
+.buddy.swaying .bot { animation: sway 4s ease-in-out infinite; }  /* ASTRO sways gently to calm music */
+.buddy.dancing .bot { animation: dance .55s ease-in-out infinite; }  /* ASTRO dances to fun music */
+@keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }  /* the gentle sway */
+@keyframes dance { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-8px) rotate(8deg); } }  /* the bouncy dance */
+
+</style>
+</head>
+<body>
+<script>
+// ON-SCREEN ERROR BOX: if any code fails, the error and its line number show at the bottom of the page
+window.addEventListener("error", function (e) {
+  var box = document.getElementById("errbox");
+  if (!box) {
+    box = document.createElement("pre");
+    box.id = "errbox";
+    box.style.cssText = "position:fixed;left:8px;right:8px;bottom:8px;z-index:99;margin:0;padding:12px;background:#3b0d0d;color:#ffd4d4;border:2px solid #f87171;border-radius:10px;font:14px monospace;white-space:pre-wrap;max-height:40vh;overflow:auto";
+    document.body.appendChild(box);
+  }
+  box.textContent += "ERROR: " + e.message + "  (line " + e.lineno + ")\n";
+});
+</script>
+<main>
+  <header>
+    <div class="logo">A</div>
+    <div>
+      <h1>Astro911 · Crew Body &amp; Mind</h1>
+      <p>Crew wellness station</p>
+    </div>
+    <div class="head-right">
+      <span class="status" id="status">Board offline</span>
+    </div>
+  </header>
+
+  <!-- ASTRO -->
+  <div class="buddy">
+    <div class="bot happy" id="bot">
+      <div class="antenna"></div>
+      <div class="head"><div class="face"><span class="eye l"></span><span class="eye r"></span><span class="mouth"></span></div></div>
+    </div>
+    <div class="bubble" id="bubble">Hello. I'm ASTRO, the crew wellness assistant.</div>
+  </div>
+
+  <!-- HOME -->
+  <section id="home" class="panel">
+    <p class="eyebrow">Wellness station</p>
+    <ul class="menu" id="homeMenu"></ul>
+    <div class="keys"><span><kbd>−</kbd><kbd>+</kbd>move</span><span><kbd>SELECT</kbd>choose</span></div>
+  </section>
+
+  <!-- TALK TO ASTRO -->
+  <section id="talk" class="panel hidden">
+    <p class="eyebrow">Talk to ASTRO</p>
+    <div class="chat talk-log" id="talkLog"></div>
+    <div class="talk-box">
+      <input id="talkInput" type="text" maxlength="300" placeholder="Type a message to ASTRO…" autocomplete="off">
+      <span class="talk-send">Enter ⏎</span>
+    </div>
+    <p class="talk-hint">No keyboard? Press − / + on the board to pick a message, then SELECT to send.</p>
+    <div class="keys"><span><kbd>ENTER</kbd>send</span><span><kbd>−</kbd><kbd>+</kbd>pick a message</span><span><kbd>ESC</kbd> or <kbd>BACK</kbd>leave</span></div>
+  </section>
+
+  <!-- QUESTIONS -->
+  <section id="quiz" class="panel hidden">
+    <div class="quiz-top"><span class="section-tag" id="sectionTag"></span><span class="progress" id="progress"></span></div>
+    <div class="track"><span class="fill" id="trackFill"></span></div>
+    <p class="question" id="question"></p>
+    <div class="dial">
+      <span class="arrow">◀</span>
+      <span class="value" id="value">1</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="dots" id="dots"></div>
+    <div class="ends"><span>1 = not at all</span><span>10 = the worst</span></div>
+    <div class="keys"><span><kbd>−</kbd><kbd>+</kbd>change</span><span><kbd>SELECT</kbd>confirm</span><span><kbd>BACK</kbd>previous</span></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="results" class="panel hidden">
+    <div class="summary">
+      <div>
+        <p class="eyebrow">Check-in result</p>
+        <p class="level" id="levelTitle"></p>
+      </div>
+      <div class="meters">
+        <div class="meter-row"><span>Body</span><div class="meter body"><span id="bodyBar"></span></div><span class="pct" id="bodyPct"></span></div>
+        <div class="meter-row"><span>Mind</span><div class="meter mind"><span id="mindBar"></span></div><span class="pct" id="mindPct"></span></div>
+      </div>
+    </div>
+    <div id="alerts"></div>
+    <div class="block">
+      <p class="block-title">Recommended next steps</p>
+      <ol class="steps" id="steps"></ol>
+    </div>
+    <div class="block advice">
+      <p class="block-title">ASTRO's advice</p>
+      <div class="chat" id="chat"></div>
+    </div>
+    <ul class="menu compact" id="resultsMenu"></ul>
+    <div class="keys"><span><kbd>−</kbd><kbd>+</kbd>move</span><span><kbd>SELECT</kbd>choose</span><span><kbd>BACK</kbd>go back</span></div>
+  </section>
+
+  <!-- LEARN: TOPIC LIST -->
+  <section id="library" class="panel hidden">
+    <p class="eyebrow">Mental health in space</p>
+    <h2>Choose a topic</h2>
+    <ul class="menu scroll" id="libraryMenu"></ul>
+    <div class="keys"><span><kbd>−</kbd><kbd>+</kbd>move</span><span><kbd>SELECT</kbd>open</span><span><kbd>BACK</kbd>go back</span></div>
+  </section>
+
+  <!-- LEARN: TOPIC -->
+  <section id="answer" class="panel hidden">
+    <p class="eyebrow">Mental health in space</p>
+    <h2 id="answerTitle"></h2>
+    <div class="answer" id="answerBody"></div>
+    <div class="chat" id="answerChat"></div>
+    <ul class="menu" id="answerMenu"></ul>
+    <div class="keys"><span><kbd>−</kbd><kbd>+</kbd>move</span><span><kbd>SELECT</kbd>choose</span><span><kbd>BACK</kbd>topics</span></div>
+  </section>
+
+  <!-- GUIDED BREATHING -->
+  <section id="breathe" class="panel hidden">
+    <p class="eyebrow">Guided breathing</p>
+    <h2>Follow the circle</h2>
+    <div class="breathe-wrap"><div class="circle" id="circle"><span id="breatheText">Get ready</span></div></div>
+    <p class="breathe-count" id="breatheCount"></p>
+    <div class="keys"><span><kbd>SELECT</kbd> or <kbd>BACK</kbd>stop</span></div>
+  </section>
+
+  <!-- GROUNDING EXERCISE -->
+  <section id="ground" class="panel hidden">
+    <p class="eyebrow">5-4-3-2-1 grounding exercise</p>
+    <div class="ground">
+      <span class="g-icon" id="gIcon">5</span>
+      <p class="g-text" id="gText"></p>
+      <div class="g-dots" id="gDots"></div>
+      <div class="g-steps" id="gSteps"></div>
+    </div>
+    <div class="keys"><span><kbd>↑</kbd> or <kbd>SELECT</kbd>noticed one</span><span><kbd>↓</kbd>undo one</span><span><kbd>←</kbd><kbd>→</kbd> or <kbd>−</kbd><kbd>+</kbd>change sense</span><span><kbd>BACK</kbd>stop</span></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- SETTINGS ----------
+// Read ASTRO's AI replies out loud (the browser may need one mouse click on the page first to allow sound)
+var SPEAK_AI = true;
+// Soft sounds when using the buttons (also need one click on the page first)
+var SOUND = true;
+// How many random questions to pick from each bank per check (the safety questions are added on top)
+var BODY_PICK = 4;
+var MIND_PICK = 4;
+// The on-board AI is slow, so give it time
+var WAIT_MS = 180000;
+
+// Breathing timing in seconds: breathe in, hold, breathe out
+var BREATHE_IN = 3;
+var BREATHE_HOLD = 4;
+var BREATHE_OUT = 6;
+
+// Ready-made messages for the talk screen (picked with − / + on the board)
+var TALK_IDEAS = [
+  "I've been feeling stressed lately.",
+  "I miss my family.",
+  "I'm having trouble sleeping up here.",
+  "I feel unmotivated today.",
+  "How do I handle tension with a crewmate?",
+  "How can I unwind after a long shift?",
+  "What helps with feeling isolated?",
+  "I keep worrying about the mission."
+];
+
+// ---------- HEALTH CHECK QUESTIONS (1 = not at all, 10 = the worst) ----------
+var BODY_BANK = [
+  { id: "sleep",     label: "poor sleep",            q: "How poorly have you been sleeping lately?" },
+  { id: "tired",     label: "low energy",            q: "How tired or low on energy do you feel?" },
+  { id: "headache",  label: "headaches",             q: "How bad are headaches or pressure in your head?" },
+  { id: "spacesick", label: "space sickness",        q: "How dizzy, nauseous, or space-sick do you feel?" },
+  { id: "puffy",     label: "stuffy or puffy head",  q: "How stuffy, puffy, or full does your face and head feel?" },
+  { id: "thirst",    label: "hunger or thirst",      q: "How hungry or thirsty do you feel right now?" },
+  { id: "appetite",  label: "appetite changes",      q: "How much has your appetite changed, eating much more or much less than usual?" },
+  { id: "back",      label: "back pain",             q: "How much back, muscle, or joint pain do you have?" },
+  { id: "heart",     label: "a pounding heart",      q: "How fast or pounding does your heart feel?" },
+  { id: "exercise",  label: "missed exercise",       q: "How much have you skipped your daily exercise sessions?" },
+  { id: "sick",      label: "cold or flu signs",     q: "How much do you have signs like fever, cough, or sore throat?" },
+  { id: "lump",      label: "unexplained body changes", q: "How much unexplained weight loss, lumps, or pain that won't go away do you have?" }
+];
+var BODY_FIXED = [
+  { id: "chest",  label: "chest pain or tightness", q: "How much chest pain, tightness, or pressure do you have?" },
+  { id: "breath", label: "trouble breathing",       q: "How hard is it to breathe, or how short of breath do you feel?" },
+  { id: "neuro",  label: "vision, confusion or numbness", q: "How much blurry vision, confusion, or numbness do you have?" }
+];
+var MIND_BANK = [
+  { id: "stress",     label: "mission stress",       q: "How stressed have you felt about the mission over the last few days?" },
+  { id: "anxious",    label: "nervousness",          q: "How nervous, on edge, or panicky do you feel?" },
+  { id: "homesick",   label: "homesickness",         q: "How much do you miss home, family, and friends?" },
+  { id: "cramped",    label: "feeling confined",     q: "How much do the small space, noise, or lack of privacy bother you?" },
+  { id: "clock",      label: "body clock trouble",   q: "How hard is it to keep track of time or stick to your sleep schedule?" },
+  { id: "focus",      label: "trouble focusing",     q: "How hard is it to concentrate or think clearly?" },
+  { id: "irritable",  label: "irritability",         q: "How easily annoyed or angry have you felt?" },
+  { id: "enjoy",      label: "losing interest",      q: "How hard is it to enjoy things you usually like?" },
+  { id: "lonely",     label: "loneliness",           q: "How isolated or cut off from people do you feel?" },
+  { id: "crew",       label: "crew tension",         q: "How much tension is there between you and the crew?" },
+  { id: "overwhelm",  label: "feeling overwhelmed",  q: "How overwhelmed do you feel by your workload?" }
+];
+var MIND_FIXED = [
+  { id: "mood",     label: "low mood",              q: "How sad, empty, or hopeless do you feel?" },
+  { id: "selfharm", label: "thoughts of self-harm", q: "How much are you having thoughts of hurting yourself, or that life isn't worth living?" }
+];
+
+var URGENT_IDS = ["chest", "breath", "neuro", "selfharm"];
+var URGENT_SCORE = 7;
+
+var levels = [
+  { max: 25, color: "#6ee7b7", title: "Green: doing well", say: "Your results look good. Keep up your routines.",
+    steps: ["Keep your routines: meals, water, sleep, and daily exercise.", "Stay in touch with family and the crew.", "Re-run this check if anything changes."] },
+  { max: 45, color: "#fbbf24", title: "Yellow: keep an eye on it", say: "Mostly fine, with a few things worth watching.",
+    steps: ["Rest, eat, and drink on schedule.", "Tell a crewmate how you're feeling.", "Re-run this check tomorrow."] },
+  { max: 70, color: "#fb923c", title: "Orange: get support", say: "Thank you for being honest. It's a good time to get some support.",
+    steps: ["Talk to the crew medical officer today.", "Ask Mission Control for a private call with the flight surgeon or crew psychologist.", "Lighten your workload if you can."] },
+  { max: 100, color: "#f87171", title: "Red: get help now", say: "Thank you for checking in. Please get help right away.",
+    steps: ["Tell the crew medical officer and the commander now.", "Contact Mission Control's flight surgeon right away.", "Don't stay alone. Have a crewmate stay with you."] }
+];
+
+var FOLLOWUPS = [
+  "Give me tips for my body.",
+  "Give me tips for my mind.",
+  "Help me calm down right now.",
+  "How can I sleep better in space?",
+  "How can I cope with missing home?"
+];
+
+var REPLIES_HIGH = ["Thank you for being honest. We'll come back to this in your results.", "Noted. That sounds difficult.", "Thanks. That's important to know."];
+
+// ---------- MENTAL HEALTH IN SPACE ----------
+// Written answers (checked and fixed). Strings are paragraphs, arrays are tip lists.
+var TOPICS = [
+  { id: "hard", urgent: true, noAI: true, title: "I'm having a really hard time right now", answer: [
+    "You don't have to get through this alone. Reaching out is the right move.",
+    ["Tell a crewmate or someone near you right now. Saying \"I'm not okay\" is enough.",
+     "Ask the crew medical officer for a private call with the crew psychologist.",
+     "Stay with someone until the feeling eases. Don't stay alone.",
+     "Use the grounding exercise or guided breathing to get through the next few minutes."],
+    "Strong feelings come in waves. This one can pass, and people want to help you."
+  ]},
+  { id: "anxiety", title: "What is anxiety?", answer: [
+    "Anxiety is your body's alarm system. It's the worried, tense feeling you get before something big or uncertain, and it's a normal part of life.",
+    "In space, things like alarms, tight schedules, and being far from home can set it off. It can show up in your body too: a fast heartbeat, tight muscles, an upset stomach, or trouble sleeping.",
+    "It becomes a problem when it's strong, frequent, or gets in the way of your work. Anxiety responds well to help, so talking to the crew medical officer or flight surgeon is a good step."
+  ]},
+  { id: "panic", title: "What can I do during a panic attack?", answer: [
+    "A panic attack is a sudden rush of fear with things like a pounding heart, fast breathing, shaking, or dizziness. It feels frightening, but it usually peaks within about 10 minutes and then passes.",
+    ["Breathe slowly, making each breath out longer than the breath in.",
+     "Use the 5-4-3-2-1 grounding exercise to bring your attention back to the room.",
+     "Remind yourself: this feeling is intense, but it will pass."],
+    "If it's your first one, or you have chest pain or trouble breathing, tell the crew medical officer to be safe."
+  ]},
+  { id: "depression", title: "What is depression?", answer: [
+    "Depression is more than a bad day. It's feeling down, empty, or hopeless most of the time for two weeks or longer.",
+    "Other signs can include losing interest in things you used to enjoy, sleeping or eating much more or less, constant tiredness, and trouble concentrating.",
+    "Depression is treatable. Talking with the crew psychologist helps, and the flight surgeon can explain other options. The first step is telling someone."
+  ]},
+  { id: "talk", title: "How do I tell the crew how I feel?", answer: [
+    ["Pick one person you trust: a crewmate, the commander, or the crew medical officer.",
+     "Choose a calm moment, like during a meal or at the end of a shift.",
+     "Start simply: \"I've been feeling really low lately and I need to talk.\"",
+     "You can also ask for a private call with the crew psychologist."],
+    "You don't need the perfect words. Saying something is enough."
+  ]},
+  { id: "friend", title: "How can I help a crewmate who is struggling?", answer: [
+    ["Listen without judging or rushing to fix things.",
+     "Tell them you care and that you're glad they told you.",
+     "Encourage them to talk to the crew medical officer or the crew psychologist.",
+     "If they talk about hurting themselves or not wanting to live, tell the crew medical officer or the commander right away, even if they asked you to keep it secret. Their safety comes first."],
+    "Look after yourself too. Supporting a crewmate can be heavy."
+  ]},
+  { id: "stress", title: "How can I handle mission stress?", answer: [
+    ["Break big tasks into small steps and focus on the next one.",
+     "Take short breaks. A few minutes at the window looking at Earth can help a lot.",
+     "Protect your sleep, and eat regular meals.",
+     "Keep up your daily exercise. It helps your mind as well as your body.",
+     "Talk it through with a crewmate instead of keeping it all inside."],
+    "Some stress is normal on a mission. If it feels like too much for too long, ask for help."
+  ]},
+  { id: "homesick", title: "What can I do when I feel homesick or isolated?", answer: [
+    ["Schedule a call or video chat with family and friends.",
+     "Share meals with the crew.",
+     "Look at photos or messages from home.",
+     "Keep up a hobby, like music, reading, writing, or photography."],
+    "Missing home doesn't mean something is wrong with you. Almost every astronaut feels it, and it usually gets easier."
+  ]},
+  { id: "crew", title: "What if there's tension with the crew?", answer: [
+    ["Raise the problem early, before it grows.",
+     "Use calm \"I\" statements, like \"I feel stressed when...\"",
+     "Take some time in your own quarters to cool down.",
+     "Ask the commander or the crew psychologist to help if it doesn't improve."],
+    "Living in a small space with the same people is hard. Some friction is normal."
+  ]},
+  { id: "sleep", title: "Why does sleep matter in space?", answer: [
+    "In orbit, the sun rises and sets about 16 times a day, which confuses your body clock. Without enough sleep, people feel more stressed, irritable, and anxious, and it's harder to focus on the mission.",
+    ["Most adults need 7 to 9 hours of sleep.",
+     "Keep the same sleep schedule every day.",
+     "Use your eye mask and earplugs.",
+     "Dim or put away screens before sleep."]
+  ]},
+  { id: "psych", title: "What does the crew psychologist do?", answer: [
+    "The crew psychologist works with the team at Mission Control. They are trained to help with stress, mood, sleep, homesickness, and crew conflict.",
+    "You can ask for a private call. They won't judge you, and together you can work out ways to cope and feel better."
+  ]},
+  { id: "selfcare", title: "What small daily habits help my mental health?", answer: [
+    ["Spend a few minutes at the window looking at Earth.",
+     "Keep up your daily exercise.",
+     "Eat at least one meal a day with the crew.",
+     "Do one small thing you enjoy.",
+     "Write down one thing that went well today."]
+  ]}
+];
+
+var GROUND_STEPS = [
+  { n: 5, sense: "see" },
+  { n: 4, sense: "touch" },
+  { n: 3, sense: "hear" },
+  { n: 2, sense: "smell" },
+  { n: 1, sense: "taste" }
+];
+
+// ---------- SETUP ----------
+var socket = (typeof io === "function") ? io(`http://${window.location.host}`) : { on: function () {}, emit: function () {} };
+if (typeof io !== "function") setTimeout(function () { say("I can't find assets/libs/socket.io.min.js, so I can't talk to the board. The menus still work.", "worried"); }, 600);
+var $ = function (id) { return document.getElementById(id); };
+
+var SCREENS = ["home", "talk", "quiz", "results", "library", "answer", "breathe", "ground"];
+var screen = "home";
+var lists = {
+  home:    { el: "homeMenu",    items: [], index: 0 },
+  results: { el: "resultsMenu", items: [], index: 0 },
+  library: { el: "libraryMenu", items: [], index: 0 },
+  answer:  { el: "answerMenu",  items: [], index: 0 }
+};
+var libraryReturn = "home", breatheReturn = "home", groundReturn = "home";
+var currentTopic = null, resultsSub = false, lastPayload = null;
+
+var questions = [], current = 0, answers = [], value = 1;
+var busy = false, waitTimer = null, aiEl = null, aiChat = null, aiText = "", aiOnDone = null;
+var breatheTimer = null, breathCycles = 0;
+var gStep = 0, gCount = 0;
+var ideaIndex = -1;
+
+for (var i = 0; i < 10; i++) $("dots").appendChild(document.createElement("span"));
+
+socket.on("connect", function () { $("status").textContent = "Board connected"; $("status").classList.add("on"); });
+socket.on("disconnect", function () { $("status").textContent = "Board offline"; $("status").classList.remove("on"); });
+
+function show(id) {
+  SCREENS.forEach(function (s) { $(s).classList.toggle("hidden", s !== id); });
+  screen = id;
+  if (lists[id]) renderList(id);
+}
+
+// ---------- ASTRO: speech bubble and expressions ----------
+function say(text, mood) {
+  var b = $("bubble");
+  b.textContent = text;
+  b.classList.remove("new"); void b.offsetWidth; b.classList.add("new");
+  if (mood) setMood(mood);
+}
+
+function setMood(mood) { $("bot").className = "bot " + mood; }
+
+function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+
+// ---------- SOFT SOUNDS ----------
+var actx = null;
+function tone(freq, ms, type, delay) {
+  if (!SOUND) return;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    var t = actx.currentTime + (delay || 0) / 1000;
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "sine";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + ms / 1000 + 0.02);
+  } catch (e) { /* sound not allowed yet */ }
+}
+var sfx = {
+  move:   function () { tone(520, 50, "sine"); },
+  select: function () { tone(660, 90, "sine"); },
+  back:   function () { tone(392, 80, "sine"); },
+  done:   function () { tone(523, 220, "sine"); tone(784, 320, "sine", 160); }
+};
+document.addEventListener("click", function () { tone(1, 1); });
+
+// ---------- NOTICES ----------
+var toastQ = [], toastBusy = false;
+function toast(text) { toastQ.push(text); if (!toastBusy) nextToast(); }
+function nextToast() {
+  if (!toastQ.length) { toastBusy = false; return; }
+  toastBusy = true;
+  var t = $("toast");
+  t.textContent = toastQ.shift();
+  t.classList.add("show");
+  setTimeout(function () { t.classList.remove("show"); setTimeout(nextToast, 350); }, 2400);
+}
+
+// ---------- MENUS ----------
+var ICONS = { check: "✚", talk: "✎", breathe: "◎", ground: "◇", library: "≡", home: "⌂",
+              agentPick: "★", askMenu: "?", ask: "›", askBack: "‹", topic: "›", aiTips: "★", backToLibrary: "‹" };
+
+function setList(name, items) {
+  lists[name].items = items;
+  lists[name].index = 0;
+  renderList(name);
+}
+
+function renderList(name) {
+  var L = lists[name];
+  var ul = $(L.el);
+  ul.innerHTML = "";
+  if (busy && (name === "results" || name === "answer")) {
+    var w = document.createElement("li");
+    w.className = "wait";
+    w.textContent = "ASTRO is thinking…";
+    ul.appendChild(w);
+    return;
+  }
+  L.items.forEach(function (item, i) {
+    var li = document.createElement("li");
+    var ic = document.createElement("span");
+    ic.className = "ic";
+    ic.textContent = item.urgent ? "!" : (ICONS[item.type] || "›");
+    li.appendChild(ic);
+    li.appendChild(document.createTextNode(item.text));
+    if (item.urgent) li.classList.add("urgent");
+    if (i === L.index) li.classList.add("sel");
+    ul.appendChild(li);
+  });
+  var sel = ul.querySelector(".sel");
+  if (sel) sel.scrollIntoView({ block: "nearest" });
+}
+
+function homeItems() {
+  return [
+    { type: "check",   text: "Start a crew check-in" },
+    { type: "talk",    text: "Talk to ASTRO" },
+    { type: "breathe", text: "Guided breathing" },
+    { type: "ground",  text: "5-4-3-2-1 grounding exercise" },
+    { type: "library", text: "Mental health in space" }
+  ];
+}
+
+function resultsMenuItems() {
+  return [
+    { type: "agentPick", text: "Suggest an exercise for me" },
+    { type: "askMenu",   text: "Ask ASTRO a question" },
+    { type: "breathe",   text: "Guided breathing" },
+    { type: "ground",    text: "Grounding exercise" },
+    { type: "library",   text: "Mental health in space" },
+    { type: "home",      text: "Home" }
+  ];
+}
+
+function askMenuItems() {
+  var items = FOLLOWUPS.map(function (f) { return { type: "ask", text: f }; });
+  items.push({ type: "askBack", text: "Back" });
+  return items;
+}
+
+function answerMenuItems() {
+  var items = [];
+  if (!currentTopic.noAI) items.push({ type: "aiTips", text: "Ask ASTRO for more tips" });
+  items.push({ type: "breathe", text: "Guided breathing" });
+  items.push({ type: "ground", text: "Grounding exercise" });
+  items.push({ type: "backToLibrary", text: "Back to topics" });
+  items.push({ type: "home", text: "Home" });
+  return items;
+}
+
+function activate(item) {
+  if (item.type === "check") startCheck();
+  else if (item.type === "talk") startTalk();
+  else if (item.type === "library") openLibrary(screen);
+  else if (item.type === "breathe") startBreathing(screen);
+  else if (item.type === "ground") startGrounding(screen);
+  else if (item.type === "home") goHome();
+  else if (item.type === "topic") openTopic(item.topic);
+  else if (item.type === "backToLibrary") openLibrary(libraryReturn, true);
+  else if (item.type === "askMenu") { resultsSub = true; setList("results", askMenuItems()); say("What would you like to ask?", "happy"); }
+  else if (item.type === "askBack") { resultsSub = false; setList("results", resultsMenuItems()); }
+  else if (item.type === "agentPick") {
+    addMsg($("chat"), "you", "Suggest an exercise for me.");
+    waitForAI($("chat"), resultsMenuItems);
+    socket.emit("agent_pick", lastPayload || {});
+  } else if (item.type === "ask") {
+    resultsSub = false;
+    addMsg($("chat"), "you", item.text);
+    waitForAI($("chat"), resultsMenuItems);
+    socket.emit("ask_followup", { question: item.text });
+  } else if (item.type === "aiTips") {
+    addMsg($("answerChat"), "you", "More tips about: " + currentTopic.title);
+    waitForAI($("answerChat"), answerMenuItems);
+    socket.emit("ask_followup", { question: "Give me a few more practical tips for an astronaut about this topic: " + currentTopic.title });
+  }
+}
+
+function goHome() {
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  $("talkInput").blur();
+  socket.emit("reset_chat", {});
+  show("home");
+  setList("home", homeItems());
+  say(pick(["What would you like to do next?", "I'm here when you need me.", "Choose an option to continue."]), "happy");
+}
+
+// ---------- INPUT: board buttons and keyboard do the same thing ----------
+function press(name) {
+  if (name === "back") sfx.back(); else if (name === "select") sfx.select(); else sfx.move();
+
+  if (screen === "talk") {
+    if (name === "back") goHome();
+    else if (name === "select") sendTalk();
+    else if (name === "minus") cycleIdea(-1);
+    else if (name === "plus") cycleIdea(1);
+    return;
+  }
+  if (screen === "quiz") {
+    if (name === "minus") value = Math.max(1, value - 1);
+    if (name === "plus") value = Math.min(10, value + 1);
+    if (name === "back") {
+      if (current > 0) { current--; value = answers[current]; }
+      else { goHome(); return; }
+    }
+    if (name === "select") { confirmAnswer(); return; }
+    renderQuestion(true);
+    return;
+  }
+  if (screen === "breathe") {
+    if (name === "select" || name === "back") stopBreathing();
+    return;
+  }
+  if (screen === "ground") {
+    if (name === "back") exitGrounding();
+    else if (name === "select") { if (gStep === -1) exitGrounding(); else groundPress(); }
+    else if (name === "minus") groundPrev();
+    else if (name === "plus") groundNext();
+    return;
+  }
+  var L = lists[screen];
+  if (!L) return;
+  if (busy && (screen === "results" || screen === "answer")) return;
+  if (name === "back") {
+    if (screen === "results") {
+      if (resultsSub) { resultsSub = false; setList("results", resultsMenuItems()); }
+      else goHome();
+    }
+    else if (screen === "library") { if (libraryReturn === "results") show("results"); else goHome(); }
+    else if (screen === "answer") openLibrary(libraryReturn, true);
+    return;
+  }
+  if (L.items.length === 0) return;
+  if (name === "minus") L.index = (L.index - 1 + L.items.length) % L.items.length;
+  if (name === "plus") L.index = (L.index + 1) % L.items.length;
+  if (name === "select") { activate(L.items[L.index]); return; }
+  renderList(screen);
+}
+
+socket.on("button", function (d) { press(d.name); });
+
+document.addEventListener("keydown", function (e) {
+  // On the talk screen the keyboard is for typing: only Enter and Escape do something special.
+  if (screen === "talk") {
+    var input = $("talkInput");
+    if (e.key === "Enter") { e.preventDefault(); sendTalk(); }
+    else if (e.key === "Escape") { e.preventDefault(); press("back"); }
+    else if (document.activeElement !== input && e.key.length === 1 && !input.disabled) input.focus();
+    return;
+  }
+  // Grounding exercise: ↑ counts one, ↓ undoes one, ← → change sense
+  if (screen === "ground") {
+    if (e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") { e.preventDefault(); sfx.select(); if (gStep === -1) exitGrounding(); else groundPress(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); groundUndo(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); groundNext(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); groundPrev(); }
+    else if (e.key === "Backspace" || e.key === "Escape") { e.preventDefault(); sfx.back(); exitGrounding(); }
+    return;
+  }
+  var map = { ArrowLeft: "minus", ArrowUp: "minus", ArrowRight: "plus", ArrowDown: "plus",
+              Enter: "select", " ": "select", Backspace: "back", Escape: "back" };
+  if (map[e.key]) { e.preventDefault(); press(map[e.key]); }
+});
+
+// ---------- TALK TO ASTRO (typing) ----------
+function startTalk() {
+  socket.emit("talk_start", {});
+  ideaIndex = -1;
+  show("talk");
+  var log = $("talkLog");
+  log.innerHTML = "";
+  addMsg(log, "ai", "Hello. How are things going for you on the station? You can tell me how you're feeling or ask about staying well in space.");
+  var input = $("talkInput");
+  input.value = "";
+  input.disabled = false;
+  setTimeout(function () { input.focus(); }, 50);
+  say("Type a message and press Enter.", "happy");
+}
+
+function cycleIdea(step) {
+  var input = $("talkInput");
+  if (input.disabled) return;
+  ideaIndex = (ideaIndex + step + TALK_IDEAS.length) % TALK_IDEAS.length;
+  input.value = TALK_IDEAS[ideaIndex];
+}
+
+function sendTalk() {
+  var input = $("talkInput");
+  var text = input.value.trim();
+  if (!text || busy) return;
+  input.value = "";
+  ideaIndex = -1;
+  addMsg($("talkLog"), "you", text);
+  waitForAI($("talkLog"), null);
+  socket.emit("talk_message", { text: text });
+}
+
+// ---------- HEALTH CHECK ----------
+function shuffleTake(list, n) {
+  var copy = list.slice();
+  for (var i = copy.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = copy[i]; copy[i] = copy[j]; copy[j] = t;
+  }
+  return copy.slice(0, n);
+}
+
+function tag(list, section) {
+  return list.map(function (q) { return { id: q.id, label: q.label, q: q.q, section: section }; });
+}
+
+function startCheck() {
+  socket.emit("reset_chat", {});
+  var body = tag(shuffleTake(BODY_BANK, BODY_PICK).concat(BODY_FIXED), "body");
+  var mind = tag(shuffleTake(MIND_BANK, MIND_PICK).concat(MIND_FIXED), "mind");
+  questions = body.concat(mind);
+  current = 0;
+  answers = [];
+  value = 1;
+  show("quiz");
+  renderQuestion(false);
+  say("We'll start with your physical health. Answer as honestly as you can.", "happy");
+}
+
+function severity(v) { return v <= 3 ? "low" : v <= 6 ? "mid" : "high"; }
+
+function renderQuestion(animate) {
+  var q = questions[current];
+  var pct = current / questions.length * 100;
+  $("sectionTag").textContent = q.section === "mind" ? "Mind" : "Body";
+  $("sectionTag").className = "section-tag " + q.section;
+  $("progress").textContent = "Question " + (current + 1) + " of " + questions.length;
+  $("trackFill").style.width = pct + "%";
+  $("question").textContent = q.q;
+  var v = $("value");
+  v.textContent = value;
+  v.className = "value " + severity(value);
+  if (animate) { v.classList.remove("pop"); void v.offsetWidth; v.classList.add("pop"); }
+  setMood(value <= 3 ? "happy" : value <= 6 ? "ok" : "worried");
+  var dots = $("dots").children;
+  for (var i = 0; i < dots.length; i++) dots[i].className = i < value ? severity(i + 1) : "";
+}
+
+function confirmAnswer() {
+  var wasSection = questions[current].section;
+  answers[current] = value;
+  if (value >= 7) say(pick(REPLIES_HIGH), "worried");
+  current++;
+  if (current >= questions.length) {
+    showResults();
+    return;
+  }
+  if (questions[current].section !== wasSection) say("Physical section done. Now a few questions about your mental health.", "happy");
+  value = answers[current] || 1;
+  renderQuestion(false);
+}
+
+function percentFor(section) {
+  var total = 0, count = 0;
+  questions.forEach(function (q, i) {
+    if (q.section === section) { total += answers[i] - 1; count++; }
+  });
+  return count ? Math.round(total / (9 * count) * 100) : 0;
+}
+
+function showResults() {
+  var body = percentFor("body");
+  var mind = percentFor("mind");
+  var worst = Math.max(body, mind);
+
+  var level = levels[levels.length - 1];
+  for (var j = 0; j < levels.length; j++) {
+    if (worst <= levels[j].max) { level = levels[j]; break; }
+  }
+
+  var urgent = [], selfHarm = 0, concerns = [];
+  questions.forEach(function (q, i) {
+    if (URGENT_IDS.indexOf(q.id) !== -1 && answers[i] >= URGENT_SCORE) urgent.push(q.label);
+    if (q.id === "selfharm") selfHarm = answers[i];
+    if (answers[i] >= 6) concerns.push({ label: q.label, score: answers[i] });
+  });
+  if (urgent.length > 0) level = levels[levels.length - 1];
+  concerns.sort(function (a, b) { return b.score - a.score; });
+
+  $("levelTitle").textContent = level.title;
+  $("levelTitle").style.color = level.color;
+  $("bodyPct").textContent = body + "%";
+  $("mindPct").textContent = mind + "%";
+  $("bodyBar").style.width = "0";
+  $("mindBar").style.width = "0";
+
+  $("alerts").innerHTML = "";
+  if (urgent.length > 0) addAlert("Urgent: high rating for " + urgent.join(", ") + ". Tell the crew medical officer now and contact Mission Control's flight surgeon.");
+  if (selfHarm >= 4) addAlert("If you're having thoughts of hurting yourself, tell a crewmate or someone near you right now, and ask for a private call with the crew psychologist. You don't have to handle this alone.");
+
+  $("steps").innerHTML = "";
+  level.steps.forEach(function (s) {
+    var li = document.createElement("li");
+    li.textContent = s;
+    $("steps").appendChild(li);
+  });
+
+  $("chat").innerHTML = "";
+  resultsSub = false;
+  lists.results.items = [];
+  show("results");
+  setTimeout(function () { $("bodyBar").style.width = body + "%"; $("mindBar").style.width = mind + "%"; }, 50);
+
+  sfx.done();
+  say(level.say, urgent.length || selfHarm >= 4 ? "worried" : "happy");
+
+  lastPayload = { body: body, mind: mind, selfharm: selfHarm, concerns: concerns.slice(0, 5) };
+  setTimeout(function () {
+    waitForAI($("chat"), resultsMenuItems);
+    socket.emit("get_advice", lastPayload);
+  }, 1200);
+}
+
+function addAlert(text) {
+  var a = document.createElement("div");
+  a.className = "alert";
+  a.textContent = text;
+  $("alerts").appendChild(a);
+}
+
+// ---------- LEARN ----------
+function openLibrary(from, keepPlace) {
+  if (!keepPlace) {
+    libraryReturn = from === "results" ? "results" : "home";
+    if (libraryReturn === "home") socket.emit("reset_chat", {});
+  }
+  var oldIndex = lists.library.index;
+  show("library");
+  setList("library", TOPICS.map(function (t) { return { type: "topic", text: t.title, topic: t, urgent: !!t.urgent }; }));
+  if (keepPlace) { lists.library.index = oldIndex; renderList("library"); }
+  else say("Choose a topic to read about.", "happy");
+}
+
+function openTopic(topic) {
+  currentTopic = topic;
+  $("answerTitle").textContent = topic.title;
+  var box = $("answerBody");
+  box.innerHTML = "";
+  box.className = "answer" + (topic.urgent ? " urgent" : "");
+  topic.answer.forEach(function (part) {
+    if (Array.isArray(part)) {
+      var ul = document.createElement("ul");
+      part.forEach(function (t) { var li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+      box.appendChild(ul);
+    } else {
+      var p = document.createElement("p");
+      p.textContent = part;
+      box.appendChild(p);
+    }
+  });
+  $("answerChat").innerHTML = "";
+  show("answer");
+  setList("answer", answerMenuItems());
+  if (topic.urgent) say("I'm glad you opened this. You matter.", "worried");
+}
+
+// ---------- GUIDED BREATHING ----------
+var PHASES = [
+  { text: "Breathe in",  ms: BREATHE_IN * 1000,   scale: 1 },
+  { text: "Hold",        ms: BREATHE_HOLD * 1000, scale: 1 },
+  { text: "Breathe out", ms: BREATHE_OUT * 1000,  scale: 0.55 }
+];
+
+function startBreathing(from) {
+  breatheReturn = from;
+  breathCycles = 0;
+  show("breathe");
+  var c = $("circle");
+  c.style.transition = "none";
+  c.style.transform = "scale(.55)";
+  $("breatheText").textContent = "Get ready";
+  $("breatheCount").textContent = "Breathe in for " + BREATHE_IN + ", hold for " + BREATHE_HOLD + ", breathe out for " + BREATHE_OUT + ".";
+  say("Follow the circle at your own pace.", "happy");
+  breatheTimer = setTimeout(function () { runPhase(0); }, 1500);
+}
+
+function runPhase(i) {
+  var p = PHASES[i];
+  var c = $("circle");
+  c.style.transition = "transform " + p.ms + "ms ease-in-out";
+  c.style.transform = "scale(" + p.scale + ")";
+  $("breatheText").textContent = p.text;
+  tone(i === 0 ? 392 : i === 1 ? 440 : 330, 300, "sine");
+  breatheTimer = setTimeout(function () {
+    var next = (i + 1) % PHASES.length;
+    if (next === 0) {
+      breathCycles++;
+      $("breatheCount").textContent = breathCycles + (breathCycles === 1 ? " breath" : " breaths") + " completed. Continue as long as you like.";
+    }
+    runPhase(next);
+  }, p.ms);
+}
+
+function stopBreathing() {
+  clearTimeout(breatheTimer);
+  if (breathCycles > 0) say("Well done. Take a moment to notice how you feel.", "happy");
+  returnTo(breatheReturn);
+}
+
+// ---------- 5-4-3-2-1 GROUNDING EXERCISE ----------
+function startGrounding(from) {
+  groundReturn = from;
+  gStep = 0;
+  gCount = 0;
+  show("ground");
+  renderGround();
+  say("Look around you. Press ↑ each time you notice something. Use ← and → to change sense.", "happy");
+}
+
+function renderGround() {
+  var s = GROUND_STEPS[gStep];
+  $("gIcon").textContent = s.n;
+  $("gText").innerHTML = "Notice <b>" + s.n + "</b> thing" + (s.n > 1 ? "s" : "") + " you can <b>" + s.sense + "</b>";
+  $("gDots").innerHTML = "";
+  for (var i = 0; i < s.n; i++) {
+    var d = document.createElement("span");
+    if (i < gCount) d.className = "done";
+    $("gDots").appendChild(d);
+  }
+  $("gSteps").innerHTML = "";
+  GROUND_STEPS.forEach(function (st, i) {
+    var sp = document.createElement("span");
+    sp.textContent = st.n + " " + st.sense;
+    sp.className = i === gStep ? "on" : i < gStep ? "past" : "";
+    $("gSteps").appendChild(sp);
+  });
+}
+
+function groundPress() {
+  var s = GROUND_STEPS[gStep];
+  gCount++;
+  tone(440 + gCount * 60, 110, "sine");
+  if (gCount >= s.n) {
+    gStep++;
+    gCount = 0;
+    if (gStep >= GROUND_STEPS.length) { finishGrounding(); return; }
+    say("Good. Next, notice things you can " + GROUND_STEPS[gStep].sense + ".", "happy");
+  }
+  renderGround();
+}
+
+function groundUndo() {
+  if (gStep === -1 || gCount === 0) return;
+  gCount--;
+  sfx.back();
+  renderGround();
+}
+
+function groundNext() {
+  if (gStep === -1) return;
+  sfx.move();
+  gStep++;
+  gCount = 0;
+  if (gStep >= GROUND_STEPS.length) { finishGrounding(); return; }
+  say("Next, notice things you can " + GROUND_STEPS[gStep].sense + ".", "happy");
+  renderGround();
+}
+
+function groundPrev() {
+  if (gStep <= 0) return;
+  sfx.move();
+  gStep--;
+  gCount = 0;
+  say("Back to things you can " + GROUND_STEPS[gStep].sense + ".", "happy");
+  renderGround();
+}
+
+function finishGrounding() {
+  gStep = -1;
+  $("gIcon").textContent = "✓";
+  $("gText").innerHTML = "Exercise complete. Take a moment to notice how you feel now.";
+  $("gDots").innerHTML = "";
+  $("gSteps").innerHTML = "";
+  sfx.done();
+  say("Well done. Grounding brings your attention back to the present moment.", "happy");
+}
+
+function exitGrounding() { returnTo(groundReturn); }
+
+function returnTo(where) {
+  if (where === "results") show("results");
+  else if (where === "answer") show("answer");
+  else goHome();
+}
+
+// ---------- ASTRO'S AI (streamed from the board) ----------
+function addMsg(chatEl, kind, text) {
+  var p = document.createElement("p");
+  p.className = "msg " + kind;
+  p.textContent = text;
+  chatEl.appendChild(p);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return p;
+}
+
+function resetTimer() {
+  clearTimeout(waitTimer);
+  waitTimer = setTimeout(function () {
+    finishAI({ error: "No answer from the AI. Check that the app is running and the AI model is downloaded." });
+  }, WAIT_MS);
+}
+
+function waitForAI(chatEl, onDone) {
+  busy = true;
+  aiText = "";
+  aiChat = chatEl;
+  aiOnDone = onDone;
+  aiEl = addMsg(chatEl, "ai wait", "Thinking");
+  if (chatEl === $("talkLog")) $("talkInput").disabled = true;
+  if (lists[screen]) renderList(screen);
+  say("Thinking. The on-board AI can take up to a minute.", "thinking");
+  resetTimer();
+}
+
+socket.on("ai_chunk", function (d) {
+  if (!aiEl) return;
+  if (aiText === "") aiEl.className = "msg ai";
+  aiText += d.text || "";
+  aiEl.textContent = aiText;
+  aiChat.scrollTop = aiChat.scrollHeight;
+  resetTimer();
+});
+
+socket.on("ai_done", finishAI);
+
+function finishAI(d) {
+  clearTimeout(waitTimer);
+  if (!busy) return;
+  busy = false;
+  if (aiEl) {
+    if (d && d.error && aiText === "") {
+      aiEl.className = "msg ai";
+      aiEl.textContent = d.error;
+    }
+    aiEl = null;
+  }
+  speak(aiText);
+
+  // Typed conversation: no menu, just hand the keyboard back
+  if (aiChat === $("talkLog")) {
+    var input = $("talkInput");
+    input.disabled = false;
+    if (screen === "talk") input.focus();
+    if (d && d.crisis) say("I'm glad you told me. Please reach out to someone near you.", "worried");
+    else say("Your turn. Type another message, or press Esc to leave.", "happy");
+    return;
+  }
+
+  var target = aiChat === $("answerChat") ? "answer" : "results";
+  lists[target].items = aiOnDone ? aiOnDone() : [];
+  lists[target].index = 0;
+  if (screen === target) renderList(target);
+
+  if (d && d.crisis) {
+    say("Thank you for checking in. You don't have to handle this alone.", "worried");
+  } else if (d && d.action) {
+    var names = { breathe: "guided breathing", ground: "the grounding exercise", topic: "a topic for you" };
+    say("I've chosen " + (names[d.action.name] || "an exercise") + ". Starting in a moment.", "happy");
+    toast("Starting " + (names[d.action.name] || "an exercise"));
+    setTimeout(function () { if (screen === "results") performAction(d.action); }, 2800);
+  } else {
+    say("Choose what you'd like to do next.", "happy");
+  }
+}
+
+function performAction(a) {
+  if (a.name === "breathe") startBreathing("results");
+  else if (a.name === "ground") startGrounding("results");
+  else if (a.name === "topic") {
+    var t = TOPICS.filter(function (x) { return x.id === a.id; })[0];
+    if (t) { libraryReturn = "results"; openTopic(t); }
+  }
+}
+
+function speak(text) {
+  if (!SPEAK_AI || !text || !window.speechSynthesis) return;
+  try {
+    speechSynthesis.cancel();
+    speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  } catch (e) { /* sound not allowed yet */ }
+}
+
+// ---------- START ----------
+setList("home", homeItems());
+say("Hello. I'm ASTRO, the crew wellness assistant. How can I help today?", "happy");
+</script>
+<!-- MUSIC SCREEN -->
+<script>
+// ==========================================================================
+// Astro911 · Music  (NASA Space Apps Challenge 2026)
+// music.js = original calming and fun music, composed in code and played live by the browser
+// No song files, no internet and no copyright problems: every note is made here.
+// Every line has a comment after // explaining what it does.
+// ==========================================================================
+(function () {                                    // wraps everything so our names don't clash with index.html
+
+  // ---------- YOUR OWN SONGS (optional) ----------
+  // Put MP3 files in assets/music/ and list them here. Only use music you have the rights to use
+  // (your own, public domain, or royalty-free with permission).
+  var MY_SONGS = [                                // your own songs (empty = none)
+    // { title: "My calm song", desc: "A song I added", kind: "calm", file: "music/my-calm-song.mp3" },  // example: remove the // to use it
+  ];                                              // end of your songs
+
+  var VOLUME = 0.6;                               // starting music volume (0 = silent, 1 = loudest)
+  try { var savedVol = parseFloat(localStorage.getItem("astro911-volume")); if (savedVol >= 0 && savedVol <= 1) VOLUME = savedVol; } catch (e) {}  // remembers your last volume, if possible
+
+  // ---------- SOUND ENGINE ----------
+  var ctx = null;                                 // the browser's sound engine (made on the first key press)
+  var master = null;                              // the main volume control
+  var bus = null;                                 // the volume control for the song playing now (cut when it stops)
+  var noiseBuf = null;                            // 2 seconds of "shhh" noise, used for rain and drums
+  var timer = null;                               // the timer that keeps scheduling notes
+  var current = null;                             // the track playing now
+  var step = 0;                                   // which beat-step the track is on
+  var nextTime = 0;                               // when the next step should sound
+  var extraNodes = [];                            // long sounds (like rain) to stop when the track ends
+  var audioEl = null;                             // the player for your own MP3 songs
+  var duckTimer = null;                           // timer for turning the music back up after ASTRO talks
+
+  function ensureCtx() {                          // creates the sound engine the first time it's needed
+    if (!ctx) {                                   // if it doesn't exist yet...
+      ctx = new (window.AudioContext || window.webkitAudioContext)();  // ...make it
+      master = ctx.createGain();                  // ...make the main volume control
+      master.gain.value = VOLUME;                 // ...set the starting volume
+      master.connect(ctx.destination);            // ...connect it to the speakers
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);  // ...make room for 2 seconds of noise
+      var data = noiseBuf.getChannelData(0);      // ...the noise samples
+      for (var i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;  // ...fill them with random values = "shhh"
+    }                                             // end of the setup
+    if (ctx.state === "suspended") ctx.resume();  // wakes the engine if the browser paused it
+  }                                               // end of ensureCtx
+
+  function freq(m) { return 440 * Math.pow(2, (m - 69) / 12); }  // turns a note number (60 = middle C) into a pitch
+  function pick(list) { return list[Math.floor(Math.random() * list.length)]; }  // picks a random item
+
+  function play(f, t, o) {                        // plays one note: pitch f at time t, with options o
+    o = o || {};                                  // no options = defaults
+    var osc = ctx.createOscillator();             // the tone maker
+    var g = ctx.createGain();                     // its volume control
+    osc.type = o.type || "sine";                  // the tone's shape (sine = soft, triangle = gentle, square = beepy)
+    osc.frequency.setValueAtTime(f, t);           // the starting pitch
+    if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(o.slideTo, t + (o.slideTime || 0.2));  // slides the pitch (cartoon "boing")
+    if (o.detune) osc.detune.value = o.detune;    // slightly out of tune = warmer sound
+    var peak = o.gain || 0.05;                    // how loud the note gets
+    var a = o.attack || 0.01;                     // how long it takes to get loud
+    var r = o.release || 0.5;                     // how long it takes to fade away
+    g.gain.setValueAtTime(0.0001, t);             // starts silent
+    g.gain.linearRampToValueAtTime(peak, t + a);  // grows to full volume
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + r);  // fades out
+    osc.connect(g);                               // tone -> volume
+    g.connect(bus);                               // volume -> this song's volume control
+    osc.start(t);                                 // plays at time t
+    osc.stop(t + a + r + 0.05);                   // stops after it has faded
+  }                                               // end of play
+
+  function hat(t, gain) {                         // a short "tss" sound (hi-hat drum)
+    var s = ctx.createBufferSource();             // plays the noise
+    s.buffer = noiseBuf;                          // uses the "shhh" noise
+    var f = ctx.createBiquadFilter();             // a filter...
+    f.type = "highpass";                          // ...that keeps only the high, crisp part
+    f.frequency.value = 7000;                     // ...above 7000 Hz
+    var g = ctx.createGain();                     // its volume control
+    g.gain.setValueAtTime(gain || 0.03, t);       // starts at this volume
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);  // fades very quickly
+    s.connect(f); f.connect(g); g.connect(bus);   // noise -> filter -> volume -> song
+    s.start(t); s.stop(t + 0.06);                 // plays it briefly
+  }                                               // end of hat
+
+  function kick(t) {                              // a soft "boom" (kick drum)
+    play(150, t, { slideTo: 45, slideTime: 0.2, gain: 0.12, release: 0.25 });  // a low note that drops in pitch
+  }                                               // end of kick
+
+  var PENTA = [60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84];  // notes that always sound nice together (pentatonic scale)
+
+  // ---------- THE TRACKS (all original, composed in code) ----------
+  var TRACKS = [                                                                       // the built-in music
+    { id: "orbit", title: "Orbit Drift", kind: "calm",                                // calm track 1
+      desc: "Slow, warm chords that drift like a quiet orbit. Good for breathing or winding down.",  // its description
+      bpm: 56, div: 1,                                                                 // speed: 56 beats a minute, 1 step per beat
+      step: function (i, t, spb) {                                                     // what plays on each step
+        var chords = [[48, 55, 64, 71], [45, 52, 60, 67], [41, 48, 57, 64], [43, 50, 59, 62]];  // 4 calm chords
+        if (i % 8 === 0) {                                                             // every 8 beats, a new chord...
+          var c = chords[(i / 8) % 4];                                                 // ...which chord
+          c.forEach(function (m) {                                                     // ...for each note in it:
+            play(freq(m), t, { type: "sine", gain: 0.035, attack: 2, release: spb * 8 });  // ...a soft, slow note
+            play(freq(m), t, { type: "triangle", gain: 0.015, attack: 2.5, release: spb * 8, detune: 6 });  // ...a warm layer on top
+          });                                                                          // ...end of the notes
+          play(freq(c[0] - 12), t, { gain: 0.05, attack: 1.5, release: spb * 8 });     // ...a deep bass note
+        }                                                                              // end of the chord
+        if (i % 2 === 1 && Math.random() < 0.5) play(freq(pick(PENTA) + 12), t, { gain: 0.018, release: 3 });  // sometimes, a gentle high sparkle
+      } },                                                                             // end of Orbit Drift
+    { id: "earthrise", title: "Earthrise", kind: "calm",                              // calm track 2
+      desc: "A gentle music-box melody, like watching the sun rise over Earth.",       // its description
+      bpm: 76, div: 2,                                                                 // speed: 76 beats a minute, 2 steps per beat
+      step: function (i, t, spb) {                                                     // what plays on each step
+        var chords = [[60, 64, 67, 72], [55, 59, 62, 67], [57, 60, 64, 69], [53, 57, 60, 65]];  // 4 chords: C, G, Am, F
+        var c = chords[Math.floor(i / 16) % 4];                                        // a new chord every 16 steps
+        var pat = [0, 1, 2, 3, 2, 1, 2, 3];                                            // the up-and-down music-box pattern
+        play(freq(c[pat[i % 8]] + 12), t, { type: "triangle", gain: 0.045, release: 0.9 });  // one music-box note
+        if (i % 8 === 0) play(freq(c[0] - 24), t, { gain: 0.07, attack: 0.05, release: spb * 8 });  // a soft bass note every 8 steps
+      } },                                                                             // end of Earthrise
+    { id: "rain", title: "Space Rain", kind: "calm",                                  // calm track 3
+      desc: "Soft rain with gentle chimes. Helps you relax or fall asleep.",           // its description
+      bpm: 60, div: 2,                                                                 // speed: 60 beats a minute, 2 steps per beat
+      start: function () {                                                             // runs once when the track starts
+        var s = ctx.createBufferSource();                                              // plays the noise...
+        s.buffer = noiseBuf; s.loop = true;                                            // ...on a loop
+        var f = ctx.createBiquadFilter();                                              // a filter...
+        f.type = "lowpass"; f.frequency.value = 1100;                                  // ...that keeps only the soft, low part = rain
+        var g = ctx.createGain(); g.gain.value = 0.06;                                 // the rain's volume
+        s.connect(f); f.connect(g); g.connect(bus);                                    // noise -> filter -> volume -> song
+        s.start();                                                                     // starts the rain
+        extraNodes.push(s);                                                            // remembers it, to stop it later
+      },                                                                               // end of start
+      step: function (i, t) {                                                          // what plays on each step
+        if (Math.random() < 0.18) play(freq(pick(PENTA) + 12), t, { gain: 0.025, release: 4 });  // sometimes, a gentle chime
+        if (i % 16 === 0) play(freq(pick([48, 45, 41, 43])), t, { gain: 0.03, attack: 2, release: 8 });  // a slow, deep hum
+      } },                                                                             // end of Space Rain
+    { id: "zerog", title: "Zero-G Bounce", kind: "fun",                               // fun track 1
+      desc: "A silly, bouncy tune with cartoon boings. Hard not to smile.",            // its description
+      bpm: 132, div: 2,                                                                // speed: 132 beats a minute, 2 steps per beat
+      step: function (i, t) {                                                          // what plays on each step
+        var mel = [72, 0, 76, 79, 76, 0, 72, 0, 74, 0, 77, 81, 77, 0, 74, 0,           // the silly melody, part 1 (0 = rest)
+                   76, 79, 84, 79, 76, 72, 74, 76, 79, 0, -1, 0, 72, 0, 0, 0];          // part 2 (-1 = a cartoon "boing")
+        var n = mel[i % 32];                                                           // this step's note
+        if (n > 0) play(freq(n), t, { type: "square", gain: 0.025, attack: 0.005, release: 0.14 });  // a short, beepy note
+        if (n === -1) play(220, t, { gain: 0.08, attack: 0.005, release: 0.4, slideTo: 880, slideTime: 0.18 });  // "boing!" (pitch slides up)
+        if (i % 2 === 0) {                                                             // on every beat, the "oom-pah" bass:
+          var roots = [48, 48, 50, 50, 52, 52, 43, 48];                                // ...the bass notes
+          var r = roots[Math.floor(i / 4) % 8];                                        // ...which one
+          play(freq(i % 4 === 0 ? r - 12 : r - 5), t, { type: "triangle", gain: 0.07, attack: 0.005, release: 0.18 });  // ..."oom" (low) then "pah" (higher)
+        }                                                                              // end of the bass
+      } },                                                                             // end of Zero-G Bounce
+    { id: "robot", title: "ASTRO's Robot Dance", kind: "fun",                         // fun track 2
+      desc: "Beeps, boops, and a dance beat. Watch ASTRO dance along!",                // its description
+      bpm: 116, div: 4,                                                                // speed: 116 beats a minute, 4 steps per beat
+      step: function (i, t, spb) {                                                     // what plays on each step
+        var bar = Math.floor(i / 16) % 4;                                              // which bar of 4 (changes the chords)
+        if (i % 4 === 0) kick(t);                                                      // "boom" on every beat
+        if (i % 2 === 1) hat(t, 0.02);                                                 // "tss" between beats
+        var arp = [60, 64, 67, 72, 62, 65, 69, 74, 57, 60, 64, 69, 59, 62, 67, 71];   // the robot's chord notes
+        if (i % 4 === 2) play(freq(arp[bar * 4 + ((i % 16) / 4 | 0)] + 12), t, { type: "square", gain: 0.02, attack: 0.003, release: 0.09 });  // a beep on the off-beat
+        var beep = [0, 0, 0, 0, 0, 0, 84, 0, 0, 0, 0, 0, 79, 0, 76, 0];               // the robot's "beep-boop" pattern
+        var b = beep[i % 16];                                                          // this step's beep
+        if (b && bar % 2 === 1) play(freq(b), t, { type: "square", gain: 0.022, attack: 0.003, release: 0.08, slideTo: freq(b) * 1.5, slideTime: 0.06 });  // "bweep!" every other bar
+        if (i % 16 === 0) play(freq(36 + [0, 2, -3, -1][bar]), t, { type: "triangle", gain: 0.08, release: spb * 12 });  // a deep bass note each bar
+      } }                                                                              // end of ASTRO's Robot Dance
+  ];                                                                                   // end of the tracks
+  var ALL = TRACKS.concat(MY_SONGS);              // built-in tracks plus your own songs
+  var selIndex = 0;                               // which track is selected
+
+  var CALM_LINES = ["Let's slow down together. Breathe with the music.", "Nice and easy. Let your shoulders drop.", "A little calm, coming right up."];  // what ASTRO says for calm tracks
+  var FUN_LINES = ["Dance break! My circuits love this one.", "Warning: this song may cause smiling.", "Beep boop! Even robots need a dance break."];  // what ASTRO says for fun tracks
+
+  // ---------- 1. Build the screen ----------
+  var sec = document.createElement("section");    // makes a new screen
+  sec.id = "music";                               // gives it the name "music"
+  sec.className = "panel hidden";                 // panel style, hidden until opened
+  sec.innerHTML =                                 // the screen's contents:
+    '<p class="eyebrow">Music</p>' +              // small label
+    '<h2>Calm and fun sounds</h2>' +              // heading
+    '<p class="talk-hint">Original music made live by ASTRO. No internet needed.</p>' +  // hint
+    '<ul class="menu music-list" id="musicMenu"></ul>' +  // the list of tracks
+    '<p class="music-now"><span class="eq" id="musicEq"><span></span><span></span><span></span><span></span><span></span></span><span id="musicNow">Nothing playing</span></p>' +  // "Now playing" with dancing bars
+    '<div class="keys"><span><kbd>↑</kbd><kbd>↓</kbd>choose</span><span><kbd>Enter</kbd>play / stop</span><span><kbd>←</kbd><kbd>→</kbd>volume</span><span><kbd>Esc</kbd>home (music keeps playing)</span></div>';  // keyboard hints
+  document.querySelector("main").appendChild(sec);  // adds the screen to the page
+  SCREENS.push("music");                          // tells index.html this screen exists
+
+  var pill = document.createElement("span");      // a small "now playing" badge in the top bar
+  pill.className = "music-pill";                  // its style (hidden until music plays)
+  document.querySelector(".head-right").prepend(pill);  // puts it next to the "Board connected" badge
+
+  // ---------- 2. Add it to the home menu ----------
+  ICONS.music = "♪";                              // the icon for the new menu option
+  var baseHomeItems = homeItems;                  // keeps the current home menu function
+  homeItems = function () {                       // replaces it with a new version...
+    var items = baseHomeItems();                  // ...that takes the current options
+    items.push({ type: "music", text: "Music: calm and fun" });  // ...and adds "Music"
+    return items;                                 // ...and gives them back
+  };                                              // end of the new home menu
+  var baseActivate = activate;                    // keeps the current "do the option" function
+  activate = function (item) {                    // replaces it with a new version...
+    if (item.type === "music") { openMusic(); return; }  // ...that opens our screen for the new option
+    baseActivate(item);                           // ...and does the normal thing for all others
+  };                                              // end of the new activate
+  if (screen === "home") setList("home", homeItems());  // redraws the home menu with the new option
+
+  // ---------- 3. Turn the music down while ASTRO talks ----------
+  var baseSpeak = speak;                          // keeps ASTRO's normal speak function
+  speak = function (text) {                       // replaces it with a version that...
+    if (master && (current || audioEl) && text) { // ...if music is playing...
+      clearTimeout(duckTimer);                    // ...cancels any earlier "turn back up"
+      master.gain.setTargetAtTime(VOLUME * 0.25, ctx.currentTime, 0.1);  // ...turns the music down to a quarter
+      if (audioEl) audioEl.volume = VOLUME * 0.25;  // ...including your own songs
+      duckTimer = setTimeout(restoreVolume, Math.min(25000, 1500 + text.length * 70));  // ...and turns it back up after ASTRO is likely done
+    }                                             // end of the music check
+    baseSpeak(text);                              // ...then ASTRO speaks as normal
+  };                                              // end of the new speak
+
+  function restoreVolume() {                      // sets the music back to the chosen volume
+    if (master) master.gain.setTargetAtTime(VOLUME, ctx.currentTime, 0.2);  // built-in tracks
+    if (audioEl) audioEl.volume = VOLUME;         // your own songs
+  }                                               // end of restoreVolume
+
+  // ---------- 4. Keyboard controls for this screen ----------
+  window.addEventListener("keydown", function (e) {  // runs on every key press (before index.html's keys)
+    if (screen !== "music") return;               // only on the music screen
+    e.stopImmediatePropagation();                 // stops index.html's keys from also running
+    var k = e.key;                                // which key was pressed
+    if (k === "Escape" || k === "Backspace") {    // Esc or Backspace...
+      e.preventDefault();                         // ...stop the browser's normal action
+      sfx.back();                                 // ...beep
+      goHome();                                   // ...go home (the music keeps playing)
+    } else if (k === "ArrowUp" || k === "ArrowDown") {  // ↑ or ↓...
+      e.preventDefault();                         // ...stop the browser's normal action
+      var dir = k === "ArrowUp" ? -1 : 1;         // ...which direction
+      selIndex = (selIndex + dir + ALL.length) % ALL.length;  // ...select the next track (wraps around)
+      sfx.move();                                 // ...beep
+      renderMusic();                              // ...redraw
+    } else if (k === "Enter" || k === " ") {      // Enter or Space...
+      e.preventDefault();                         // ...stop the browser's normal action
+      var tr = ALL[selIndex];                     // ...the selected track
+      if (isPlaying(tr)) stopMusic(); else startTrack(tr);  // ...stop it if it's playing, otherwise play it
+    } else if (k === "ArrowLeft" || k === "ArrowRight") {  // ← or →...
+      e.preventDefault();                         // ...stop the browser's normal action
+      VOLUME = Math.round(Math.min(1, Math.max(0, VOLUME + (k === "ArrowRight" ? 0.1 : -0.1))) * 10) / 10;  // ...volume up or down by 10%
+      try { localStorage.setItem("astro911-volume", String(VOLUME)); } catch (err) {}  // ...remember it, if possible
+      restoreVolume();                            // ...apply it
+      renderMusic();                              // ...show the new volume
+    }                                             // end of the keys
+  }, true);                                       // "true" = runs before the other key listeners
+
+  // ---------- 5. Playing and stopping ----------
+  function isPlaying(tr) { return (current && current === tr) || (audioEl && audioEl._track === tr); }  // true if this track is playing
+
+  function startTrack(tr) {                       // starts a track
+    stopMusic(true);                              // stops anything already playing (quietly)
+    ensureCtx();                                  // makes sure the sound engine is ready
+    if (tr.file) {                                // YOUR OWN SONG (an MP3 file):
+      audioEl = new Audio(tr.file);               // ...loads the file
+      audioEl._track = tr;                        // ...remembers which track it is
+      audioEl.loop = true;                        // ...repeats it
+      audioEl.volume = VOLUME;                    // ...sets the volume
+      audioEl.play().catch(function () {          // ...plays it, or if it fails...
+        toast("Couldn't play " + tr.title + ". Check that the file is in assets/music/.");  // ...explains
+        stopMusic();                              // ...and stops
+      });                                         // end of the play attempt
+    } else {                                      // A BUILT-IN TRACK:
+      bus = ctx.createGain();                     // ...a fresh volume control for this song
+      bus.connect(master);                        // ...connected to the main volume
+      current = tr;                               // ...remembers the track
+      step = 0;                                   // ...starts at the first step
+      nextTime = ctx.currentTime + 0.1;           // ...the first note plays in 0.1 s
+      if (tr.start) tr.start();                   // ...starts any long sounds (like rain)
+      timer = setInterval(scheduleNotes, 50);     // ...checks every 50 ms and plans upcoming notes
+    }                                             // end of the two kinds
+    var fun = tr.kind === "fun";                  // true for fun tracks
+    document.querySelector(".buddy").classList.toggle("dancing", fun);   // ASTRO dances to fun tracks
+    document.querySelector(".buddy").classList.toggle("swaying", !fun);  // ASTRO sways gently to calm tracks
+    say(pick(fun ? FUN_LINES : CALM_LINES), "happy");  // ASTRO says something fitting
+    renderMusic();                                // redraws the screen
+  }                                               // end of startTrack
+
+  function scheduleNotes() {                      // plans the notes for the next 0.3 seconds
+    if (!current) return;                         // nothing playing = nothing to plan
+    var spb = 60 / current.bpm / current.div;     // how many seconds one step lasts
+    while (nextTime < ctx.currentTime + 0.3) {    // while there's a step in the next 0.3 s...
+      current.step(step, nextTime, spb);          // ...ask the track what to play on it
+      step++;                                     // ...next step
+      nextTime += spb;                            // ...the time of the next step
+    }                                             // end of the planning
+  }                                               // end of scheduleNotes
+
+  function stopMusic(quiet) {                     // stops the music
+    clearInterval(timer); timer = null;           // stops planning notes
+    current = null;                               // no built-in track playing
+    extraNodes.forEach(function (n) { try { n.stop(); } catch (e) {} });  // stops long sounds like rain
+    extraNodes = [];                              // forgets them
+    if (bus) {                                    // if a built-in track was playing...
+      var old = bus;                              // ...its volume control
+      old.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.08);  // ...fades it out smoothly
+      setTimeout(function () { try { old.disconnect(); } catch (e) {} }, 500);  // ...then disconnects it
+      bus = null;                                 // ...no song volume control now
+    }                                             // end of the fade
+    if (audioEl) { audioEl.pause(); audioEl = null; }  // stops your own song
+    document.querySelector(".buddy").classList.remove("dancing", "swaying");  // ASTRO stops dancing
+    if (!quiet) say("Music stopped. Come back any time.", "happy");  // ASTRO says so (unless switching songs)
+    renderMusic();                                // redraws the screen
+  }                                               // end of stopMusic
+
+  // ---------- 6. Drawing the screen ----------
+  function renderMusic() {                        // draws the track list and the "now playing" line
+    var ul = $("musicMenu");                      // the track list
+    ul.innerHTML = "";                            // clears it
+    ALL.forEach(function (tr, i) {                // for each track...
+      var li = document.createElement("li");      // ...make a line
+      if (i === selIndex) li.classList.add("sel");  // ...highlight it if selected
+      if (isPlaying(tr)) li.classList.add("playing");  // ...mark it if playing
+      var ic = document.createElement("span");    // ...the icon
+      ic.className = "ic";                        // ...icon style
+      ic.textContent = isPlaying(tr) ? "▶" : (tr.kind === "fun" ? "★" : "☾");  // ...▶ playing, ★ fun, ☾ calm
+      li.appendChild(ic);                         // ...add the icon
+      var box = document.createElement("div");    // ...a box for the text
+      var t = document.createElement("div");      // ...the title
+      t.className = "music-title";                // ...title style
+      t.textContent = tr.title + (tr.kind === "fun" ? "  ·  fun" : "  ·  calm");  // ...e.g. "Earthrise · calm"
+      var d = document.createElement("div");      // ...the description
+      d.className = "music-desc";                 // ...description style
+      d.textContent = tr.desc || "";              // ...the text
+      box.appendChild(t); box.appendChild(d);     // ...put title and description in the box
+      li.appendChild(box);                        // ...add the box
+      ul.appendChild(li);                         // ...add the line to the list
+    });                                           // end of the tracks
+    var sel = ul.querySelector(".sel");           // the selected line
+    if (sel) sel.scrollIntoView({ block: "nearest" });  // scrolls so it's visible
+    var playing = current || (audioEl && audioEl._track);  // the track playing now (if any)
+    $("musicNow").textContent = (playing ? "Now playing: " + playing.title : "Nothing playing") + "  ·  volume " + Math.round(VOLUME * 100) + "%";  // "Now playing..." and the volume
+    $("musicEq").classList.toggle("on", !!playing);  // the little bars dance while music plays
+    pill.textContent = playing ? "♪ " + playing.title : "";  // the badge in the top bar
+    pill.classList.toggle("on", !!playing);       // shows the badge only while music plays
+  }                                               // end of renderMusic
+
+  function openMusic() {                          // opens the music screen
+    show("music");                                // shows it
+    renderMusic();                                // draws it
+    say("Pick some music. Calm tracks help you relax, fun ones are for a smile.", "happy");  // ASTRO explains
+  }                                               // end of openMusic
+})();                                             // runs everything above right away
+</script>
+<!-- HEART CHECK (HRV) SCREEN -->
+<style>
+/* ---------- Heart check (HRV) ---------- */
+.hrv-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }  /* 4 number boxes in a row */
+.hrv-stat { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 10px; text-align: center; }  /* one number box */
+.hrv-stat b { display: block; font-size: 1.6em; }             /* the big number */
+.hrv-stat small { opacity: 0.75; }                            /* the label under it */
+.hrv-graph { width: 100%; height: 90px; display: block; background: rgba(255,255,255,0.04); border-radius: 12px; }  /* the heartbeat graph */
+.hrv-graph polyline { fill: none; stroke: #f472b6; stroke-width: 2; stroke-linejoin: round; }  /* the pink line */
+.hrv-level { margin: 12px 0 4px; font-size: 1.25em; font-weight: 700; }  /* "Relaxed and recovered" */
+.hrv-level.relaxed { color: #4ade80; }                        /* green */
+.hrv-level.balanced { color: #facc15; }                       /* yellow */
+.hrv-level.strained { color: #fb923c; }                       /* orange */
+.hrv-note { opacity: 0.7; font-size: 0.85em; }                /* the small "not a medical test" line */
+.hrv-hidden { display: none; }                                /* hides the results until they arrive */
+</style>
+<script>
+(function () {                                                // wraps everything so our names don't clash with index.html
+  var SAMPLES = [                                             // the choices: all REAL people from PhysioNet
+    { text: "Real person: highest HRV (most relaxed)", pick: "high" },
+    { text: "Real person: middle HRV", pick: "middle" },
+    { text: "Real person: lowest HRV (most strained)", pick: "low" },
+    { text: "Random real person", pick: "random" }
+  ];                                                          // end of the choices
+  var loadedOnce = false;                                     // true after the first download finished
+  var items = [];                                             // what the menu shows right now
+  var sel = 0;                                                // which menu line is selected
+  var waitTimer = null;                                       // timer for "the board didn't answer"
+  var realInfo = null;                                        // details of the real recording being checked (or null)
+
+  // REAL DATA comes from PhysioNet "RR interval time series from healthy subjects" (free, no key, CC BY 4.0).
+  // main.py downloads it, because web pages aren't allowed to download from PhysioNet directly.
+
+  // ---------- 1. Build the screen ----------
+  var sec = document.createElement("section");                // makes a new screen
+  sec.id = "hrv";                                             // gives it the name "hrv"
+  sec.className = "panel hidden";                             // panel style, hidden until opened
+  sec.innerHTML =                                             // the screen's contents:
+    '<p class="eyebrow">Heart check</p>' +                    // small label
+    '<h2>Heart rate variability (HRV)</h2>' +                 // heading
+    '<p class="talk-hint">HRV is how much the time between heartbeats changes. More change usually means a calmer, rested body.</p>' +  // explanation
+    '<div id="hrvResult" class="hrv-hidden">' +               // the results area (hidden at first)
+      '<div class="hrv-stats">' +                             // the 4 number boxes
+        '<div class="hrv-stat"><b id="hrvHR">-</b><small>heart rate (bpm)</small></div>' +
+        '<div class="hrv-stat"><b id="hrvRMSSD">-</b><small>RMSSD (ms)</small></div>' +
+        '<div class="hrv-stat"><b id="hrvSDNN">-</b><small>SDNN (ms)</small></div>' +
+        '<div class="hrv-stat"><b id="hrvPNN">-</b><small>pNN50 (%)</small></div>' +
+      '</div>' +                                              // end of the boxes
+      '<svg class="hrv-graph" viewBox="0 0 600 90" preserveAspectRatio="none"><polyline id="hrvLine" points=""></polyline></svg>' +  // the graph of gaps between beats
+      '<p class="hrv-level" id="hrvLevel"></p>' +             // the level, e.g. "Balanced"
+      '<p id="hrvText"></p>' +                                // the advice
+      '<p class="hrv-note" id="hrvNote"></p>' +  // safety note
+    '</div>' +                                                // end of the results
+    '<ul class="menu" id="hrvMenu"></ul>' +                   // the menu
+    '<div class="keys"><span><kbd>↑</kbd><kbd>↓</kbd>choose</span><span><kbd>Enter</kbd>select</span><span><kbd>Esc</kbd>home</span></div>';  // keyboard hints
+  document.querySelector("main").appendChild(sec);            // adds the screen to the page
+  SCREENS.push("hrv");                                        // tells index.html this screen exists
+
+  // ---------- 2. Add it to the home menu ----------
+  ICONS.hrv = "♥";                                            // the icon for the new menu option
+  var baseHomeItems = homeItems;                              // keeps the current home menu function
+  homeItems = function () {                                   // replaces it with a version...
+    var list = baseHomeItems();                               // ...that takes the current options
+    list.push({ type: "hrv", text: "Heart check (HRV)" });    // ...and adds the heart check
+    return list;                                              // ...and gives them back
+  };                                                          // end of the new home menu
+  var baseActivate = activate;                                // keeps the current "do the option" function
+  activate = function (item) {                                // replaces it with a version...
+    if (item.type === "hrv") { openHRV(); return; }           // ...that opens our screen
+    baseActivate(item);                                       // ...and does the normal thing for others
+  };                                                          // end of the new activate
+  if (screen === "home") setList("home", homeItems());        // redraws the home menu
+
+  // ---------- 3. Keyboard ----------
+  window.addEventListener("keydown", function (e) {           // runs on every key press (before index.html's keys)
+    if (screen !== "hrv") return;                             // only on this screen
+    e.stopImmediatePropagation();                             // stops index.html's keys from also running
+    var k = e.key;                                            // which key
+    if (k === "Escape" || k === "Backspace") { e.preventDefault(); sfx.back(); goHome(); }  // Esc = home
+    else if (k === "ArrowUp" || k === "ArrowDown") {          // ↑ or ↓ = move
+      e.preventDefault();                                     // stop the page from scrolling
+      sel = (sel + (k === "ArrowUp" ? -1 : 1) + items.length) % items.length;  // next line (wraps around)
+      sfx.move();                                             // beep
+      renderMenu();                                           // redraw
+    } else if (k === "Enter" || k === " ") { e.preventDefault(); sfx.select(); choose(items[sel]); }  // Enter = pick
+  }, true);                                                   // "true" = runs first
+
+  // ---------- 4. Menu ----------
+  function renderMenu() {                                     // draws the menu
+    var ul = $("hrvMenu");                                    // the list
+    ul.innerHTML = "";                                        // clear it
+    items.forEach(function (it, i) {                          // for each option...
+      var li = document.createElement("li");                  // ...a line
+      if (i === sel) li.classList.add("sel");                 // ...highlighted if selected
+      li.textContent = it.text;                               // ...its words
+      ul.appendChild(li);                                     // ...add it
+    });                                                       // end of the options
+    var s = ul.querySelector(".sel");                         // the selected line
+    if (s) s.scrollIntoView({ block: "nearest" });            // scrolls so it's on screen
+  }                                                           // end of renderMenu
+
+  function setItems(list) { items = list; sel = 0; renderMenu(); }  // swaps in a new menu
+
+  function sampleMenu() { return SAMPLES.concat([{ text: "Home", home: true }]); }  // the samples plus "Home"
+
+  function choose(it) {                                       // runs the picked option
+    if (!it) return;                                          // nothing picked
+    if (it.home) goHome();                                    // "Home"
+    else if (it.breathe) startBreathing("hrv");               // "Try guided breathing"
+    else if (it.again) { $("hrvResult").classList.add("hrv-hidden"); setItems(sampleMenu()); say("Pick another real person.", "happy"); }  // "Check another"
+    else runReal(it.pick);                                    // a real person = ask main.py for them
+  }                                                           // end of choose
+
+  // ---------- 5. Ask the board ----------
+  function runReal(pick) {                                    // asks main.py for a real person's heartbeats
+    say(loadedOnce ? "Checking a real person's heartbeats..." : "Downloading real heartbeat recordings from PhysioNet. The first time takes up to a minute...", "thinking");  // ASTRO says so
+    setItems([]);                                             // hide the menu while waiting
+    clearTimeout(waitTimer);                                  // cancel an old timer
+    waitTimer = setTimeout(function () {                      // if no answer in 2 minutes...
+      say("The board didn't answer. Make sure you pasted the new main.py and the board has internet.", "worried");  // ...explain
+      setItems(sampleMenu());                                 // ...show the menu again
+    }, 120000);                                               // 2 minutes (the first download can be slow)
+    socket.emit("hrv_real", { pick: pick });                  // main.py downloads it (web pages aren't allowed to)
+  }                                                           // end of runReal
+
+  function runCheck(n, beats) {                               // asks main.py to work out HRV (beats = real data, if any)
+    say("Measuring... reading 5 minutes of heartbeats.", "thinking");  // ASTRO says so
+    setItems([]);                                             // hide the menu while waiting
+    clearTimeout(waitTimer);                                  // cancel an old timer
+    waitTimer = setTimeout(function () {                      // if no answer in 6 seconds...
+      say("The board didn't answer. Make sure main.py has the HEART CHECK part, then Stop and Run.", "worried");  // ...explain
+      setItems(sampleMenu());                                 // ...show the menu again
+    }, 6000);                                                 // 6 seconds
+    socket.emit("hrv_check", beats ? { sample: n, rr: beats } : { sample: n });  // sends the request (and real beats) to main.py
+  }                                                           // end of runCheck
+
+  socket.on("hrv_result", function (d) {                      // main.py sent the results
+    clearTimeout(waitTimer);                                  // it answered, so cancel the timer
+    realInfo = d.real || null;                                // details of the real person (or null for a sensor)
+    if (realInfo) loadedOnce = true;                          // downloads are done, next time is quick
+    if (d.error) { say("Heart check problem: " + d.error, "worried"); setItems(sampleMenu()); return; }  // show an error
+    $("hrvHR").textContent = d.stats.heart_rate;              // fills in the numbers
+    $("hrvRMSSD").textContent = d.stats.rmssd;
+    $("hrvSDNN").textContent = d.stats.sdnn;
+    $("hrvPNN").textContent = d.stats.pnn50;
+    drawGraph(d.graph || []);                                 // draws the graph
+    var lv = $("hrvLevel");                                   // the level line
+    lv.textContent = d.advice.title;                          // e.g. "Balanced"
+    lv.className = "hrv-level " + d.level;                    // its colour
+    $("hrvText").textContent = d.advice.text;                 // the advice
+    $("hrvNote").textContent = realInfo                       // the note under the advice:
+      ? "Real recording: PhysioNet person #" + realInfo.id + (realInfo.age != null ? ", age " + realInfo.age : "") + " (one of " + realInfo.count + " adults checked). Data: Irurzun et al., PhysioNet (CC BY 4.0). A wellness guide, not a medical test."  // ...credit for real data
+      : "From your heart sensor. A wellness guide, not a medical test.";  // ...or from a sensor (later)
+    $("hrvResult").classList.remove("hrv-hidden");            // shows the results
+    say(d.advice.title + ". " + d.advice.text, d.advice.mood);  // ASTRO says it out loud
+    var next = [];                                            // the menu after the result
+    if (d.advice.action === "breathe") next.push({ text: "Try guided breathing", breathe: true });  // breathing, if it helps
+    next.push({ text: "Check another person", again: true }); // try again
+    next.push({ text: "Home", home: true });                  // home
+    setItems(next);                                           // show it
+  });                                                         // end of the result
+
+  function drawGraph(rr) {                                    // draws the gaps between beats as a line
+    if (rr.length < 2) { $("hrvLine").setAttribute("points", ""); return; }  // nothing to draw
+    var avg = rr.reduce(function (s, v) { return s + v; }, 0) / rr.length;  // the average gap
+    var lo = avg - 150, hi = avg + 150;                       // same height every time (average ± 150 ms), so more wiggle = more HRV
+    var pts = rr.map(function (v, i) {                        // for each point...
+      var x = i * 600 / (rr.length - 1);                      // ...across
+      var y = 85 - (v - lo) * 80 / (hi - lo);                 // ...up and down
+      return x.toFixed(1) + "," + y.toFixed(1);               // ...as "x,y"
+    });                                                       // end of the points
+    $("hrvLine").setAttribute("points", pts.join(" "));       // draws them
+  }                                                           // end of drawGraph
+
+  function openHRV() {                                        // opens the heart check screen
+    show("hrv");                                              // shows it
+    $("hrvResult").classList.add("hrv-hidden");               // hides old results
+    setItems(sampleMenu());                                   // shows the samples
+    say("Pick a real person's recording from PhysioNet and I'll check their heart rate variability.", "happy");  // ASTRO explains
+  }                                                           // end of openHRV
+})();                                                         // runs everything above right away
+</script>
+</body>
+</html>

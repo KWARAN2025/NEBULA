@@ -1,0 +1,362 @@
+/* ==========================================================================
+   Astro911 · Crew Body & Mind  (NASA Space Apps Challenge 2026)
+   style.css = the design: colors, sizes, layout and animations
+   Every line has a comment at the end explaining what it does.
+   ========================================================================== */
+
+:root {                                   /* color "variables" used everywhere in the design */
+  --bg: #060d1a;                          /* page background: very dark space blue */
+  --panel: rgba(16, 31, 53, 0.85);        /* see-through dark blue for the main boxes */
+  --panel-solid: #101f35;                 /* solid dark blue for keys and text boxes */
+  --line: #22406a;                        /* color of thin borders */
+  --text: #eaf1fb;                        /* main text color: almost white */
+  --muted: #8ea4c2;                       /* grey-blue for less important text */
+  --body: #5cc8ff;                        /* light blue: used for the Body score and highlights */
+  --mind: #c4a7ff;                        /* light purple: used for the Mind score */
+  --calm: #6ee7b7;                        /* mint green: good / calm */
+  --warn: #fbbf24;                        /* yellow: warning */
+  --danger: #f87171;                      /* red: urgent */
+  --radius: 18px;                         /* how round the corners of the boxes are */
+}                                         /* end of the color variables */
+* { box-sizing: border-box; }             /* makes widths include padding, so boxes don't overflow */
+html, body { height: 100%; }              /* the page fills the whole screen height */
+body {                                    /* the whole page */
+  margin: 0;                              /* removes the browser's default edge space */
+  color: var(--text);                     /* default text color */
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;   /* clean, easy-to-read fonts */
+  font-size: 18px;                        /* large text, easy to read on a small screen */
+  background-color: var(--bg);            /* dark space background */
+  background-image:                       /* draws stars and soft glows on the background */
+    radial-gradient(1.5px 1.5px at 8% 12%, rgba(255,255,255,.7), transparent),   /* a star */
+    radial-gradient(1px 1px at 22% 68%, rgba(255,255,255,.5), transparent),      /* a star */
+    radial-gradient(1.5px 1.5px at 41% 28%, rgba(255,255,255,.6), transparent),  /* a star */
+    radial-gradient(1px 1px at 63% 82%, rgba(255,255,255,.5), transparent),      /* a star */
+    radial-gradient(1.5px 1.5px at 78% 18%, rgba(255,255,255,.7), transparent),  /* a star */
+    radial-gradient(1px 1px at 91% 55%, rgba(255,255,255,.5), transparent),      /* a star */
+    radial-gradient(900px 500px at 85% -10%, rgba(92,200,255,.12), transparent), /* blue glow top right */
+    radial-gradient(800px 500px at -10% 110%, rgba(196,167,255,.12), transparent); /* purple glow bottom left */
+  background-attachment: fixed;           /* the stars stay still when you scroll */
+  display: flex;                          /* turns on flexible layout */
+  justify-content: center;                /* centers the app across the screen */
+  padding: 24px 16px 40px;                /* space around the app: top, sides, bottom */
+}                                         /* end of the page style */
+main { width: 100%; max-width: 760px; }   /* the app column: full width, but never wider than 760px */
+
+/* ---------- Header ---------- */
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }   /* puts logo, title and status in one row */
+.logo {                                   /* the "A" logo square */
+  width: 52px; height: 52px; border-radius: 16px; flex-shrink: 0;               /* size and rounded corners; never shrinks */
+  display: grid; place-items: center;     /* centers the letter inside */
+  background: linear-gradient(135deg, var(--body), var(--mind));                /* blue-to-purple color fade */
+  color: #06101f; font-weight: 800; font-size: 1.5rem;                          /* dark, bold, big letter */
+  box-shadow: 0 6px 24px rgba(92,200,255,.25);                                  /* soft blue glow under it */
+}                                         /* end of the logo */
+header h1 { font-size: 1.5rem; margin: 0; letter-spacing: .3px; }               /* the app title */
+header p { margin: 2px 0 0; color: var(--muted); font-size: .95rem; }           /* the line under the title */
+.head-right { margin-left: auto; display: flex; gap: 8px; align-items: center; } /* pushes the status badge to the right */
+.status {                                 /* the "Board connected" badge */
+  font-size: .8rem; padding: 6px 12px; border-radius: 999px;                    /* small text in a pill shape */
+  border: 1px solid var(--line); color: var(--muted); white-space: nowrap;      /* thin border; text stays on one line */
+}                                         /* end of the badge */
+.status::before { content: "● "; color: var(--danger); }                        /* red dot = board offline */
+.status.on::before { color: var(--calm); }                                      /* green dot = board connected */
+
+/* ---------- ASTRO the robot ---------- */
+.buddy { display: flex; align-items: center; gap: 16px; margin: 0 0 16px; }     /* robot and speech bubble side by side */
+.bot { position: relative; width: 66px; height: 66px; margin-top: 10px; flex-shrink: 0; animation: bob 4s ease-in-out infinite; }  /* the robot; slowly floats up and down */
+.bot .antenna { position: absolute; left: 50%; top: -12px; width: 4px; height: 12px; margin-left: -2px; background: #9fb4cf; border-radius: 2px; }  /* the antenna stick */
+.bot .antenna::after {                    /* the glowing ball on top of the antenna */
+  content: ""; position: absolute; top: -7px; left: -3px; width: 10px; height: 10px; border-radius: 50%;  /* a small circle */
+  background: var(--calm); box-shadow: 0 0 10px var(--calm);                    /* green with a glow */
+}                                         /* end of the antenna ball */
+.bot .head { position: absolute; inset: 0; border-radius: 20px; background: linear-gradient(160deg, #e3edf9, #9fb4cf); border: 2px solid #c9d9ee; }  /* the silver head */
+.bot .face { position: absolute; inset: 11px 9px 13px; border-radius: 12px; background: #0b1a2e; }  /* the dark screen face */
+.bot .eye {                               /* each eye */
+  position: absolute; top: 9px; width: 9px; height: 9px; border-radius: 50%;    /* small round eyes */
+  background: var(--body); box-shadow: 0 0 8px var(--body);                     /* glowing blue */
+  animation: blink 5s infinite; transition: top .3s, background .3s;            /* blinks every 5 s; moves smoothly */
+}                                         /* end of the eyes */
+.bot .eye.l { left: 9px; }                /* left eye position */
+.bot .eye.r { right: 9px; }               /* right eye position */
+.bot .mouth {                             /* the mouth (a smile by default) */
+  position: absolute; left: 50%; bottom: 6px; width: 18px; height: 8px; margin-left: -9px;  /* centered at the bottom */
+  border: 3px solid var(--body); border-top: 0; border-radius: 0 0 12px 12px; transition: all .3s;  /* curved line = smile */
+}                                         /* end of the mouth */
+.bot.ok .mouth { height: 3px; border: 0; background: var(--body); border-radius: 2px; bottom: 9px; }  /* "ok" face: straight mouth */
+.bot.worried .eye { background: var(--warn); box-shadow: 0 0 8px var(--warn); } /* "worried" face: yellow eyes */
+.bot.worried .mouth { border: 3px solid var(--warn); border-bottom: 0; border-radius: 12px 12px 0 0; bottom: 4px; }  /* "worried" face: frown */
+.bot.thinking .eye { top: 5px; }          /* "thinking" face: eyes look up */
+.bot.thinking .mouth { width: 8px; height: 8px; margin-left: -4px; border: 3px solid var(--mind); border-radius: 50%; }  /* "thinking" face: small "o" mouth */
+.bot.thinking .antenna::after { background: var(--mind); box-shadow: 0 0 10px var(--mind); animation: pulse .9s ease-in-out infinite; }  /* antenna blinks purple while the AI thinks */
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }   /* the floating movement */
+@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }     /* the eye blink */
+@keyframes pulse { 50% { opacity: .3; } }                                       /* the antenna fading in and out */
+.bubble {                                 /* ASTRO's speech bubble */
+  position: relative; flex: 1; padding: 12px 16px; border-radius: 16px;         /* fills the row; rounded box */
+  background: var(--panel); border: 1px solid var(--line); line-height: 1.45; font-size: 1rem;  /* dark box with a border */
+}                                         /* end of the bubble */
+.bubble::before {                         /* the little triangle pointing at ASTRO */
+  content: ""; position: absolute; left: -9px; top: 50%; margin-top: -8px;      /* placed on the left middle */
+  border: 8px solid transparent; border-right-color: var(--line); border-left: 0;  /* a border trick that draws a triangle */
+}                                         /* end of the triangle */
+.bubble.new { animation: rise .3s ease-out; }   /* new messages slide up gently */
+
+/* ---------- Panels (the main boxes for each screen) ---------- */
+.panel {                                  /* the box each screen sits in */
+  background: var(--panel);               /* see-through dark blue */
+  border: 1px solid var(--line);          /* thin border */
+  border-radius: var(--radius);           /* rounded corners */
+  padding: 26px;                          /* space inside the box */
+  box-shadow: 0 20px 50px rgba(0,0,0,.35);  /* soft shadow under it */
+  backdrop-filter: blur(8px);             /* blurs the stars behind it, like glass */
+  animation: rise .35s ease-out;          /* slides up when a screen opens */
+}                                         /* end of the panel */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }  /* the slide-up movement */
+.hidden { display: none !important; }     /* hides any screen or element that has the "hidden" class */
+.eyebrow { text-transform: uppercase; letter-spacing: 1.5px; font-size: .75rem; font-weight: 700; color: var(--muted); margin: 0 0 10px; }  /* small capital label above a screen */
+h2 { font-size: 1.4rem; margin: 0 0 14px; line-height: 1.35; }                 /* screen headings */
+
+/* ---------- Menus (moved with the arrow keys) ---------- */
+.menu { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }     /* a list of options with space between them */
+.menu li {                                /* each menu option */
+  display: flex; align-items: center; gap: 12px;                                /* icon and text in one row */
+  padding: 14px 16px; border-radius: 12px;                                      /* big, easy-to-see buttons */
+  border: 1px solid var(--line); background: rgba(26, 49, 80, .6);              /* border and dark background */
+  transition: transform .15s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;  /* smooth change when selected */
+}                                         /* end of a menu option */
+.menu li .ic {                            /* the little icon square on each option */
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;                /* small rounded square */
+  display: grid; place-items: center; font-size: 1rem; color: var(--body);      /* centered blue symbol */
+  background: rgba(255,255,255,.07);      /* faint light background */
+}                                         /* end of the icon */
+.menu li.sel {                            /* the option that is currently selected */
+  background: linear-gradient(90deg, rgba(92,200,255,.25), rgba(92,200,255,.08));  /* glowing blue background */
+  border-color: var(--body); transform: translateX(6px);                        /* blue border; slides right a little */
+  box-shadow: 0 0 0 3px rgba(92,200,255,.15);                                   /* soft blue ring around it */
+  font-weight: 600;                       /* bolder text */
+}                                         /* end of the selected option */
+.menu li.urgent { border-color: rgba(248,113,113,.6); }                         /* the "hard time" topic has a red border */
+.menu li.urgent .ic { color: var(--danger); }                                   /* its icon is red */
+.menu li.urgent.sel { background: linear-gradient(90deg, rgba(248,113,113,.28), rgba(248,113,113,.08)); border-color: var(--danger); box-shadow: 0 0 0 3px rgba(248,113,113,.18); }  /* red glow when selected */
+.menu li.wait { color: var(--muted); background: transparent; border-style: dashed; grid-column: 1 / -1; }  /* the "ASTRO is thinking" line */
+.menu.scroll { max-height: 50vh; overflow-y: auto; padding-right: 4px; }        /* long menus scroll instead of growing */
+.menu.compact { grid-template-columns: 1fr 1fr; }                               /* results menu: two columns */
+.menu.compact li { padding: 11px 14px; font-size: .95rem; }                     /* slightly smaller options in two columns */
+.menu.compact li.sel { transform: none; }                                       /* no sliding in the two-column menu */
+
+/* ---------- Keyboard hints at the bottom of each screen ---------- */
+.keys {                                   /* the row of key hints */
+  display: flex; gap: 16px; flex-wrap: wrap;                                    /* hints side by side, wrapping if needed */
+  color: var(--muted); font-size: .85rem;                                       /* small grey text */
+  margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);       /* a line above them */
+}                                         /* end of the hints row */
+kbd {                                     /* a key drawn like a keyboard key, e.g. Enter */
+  display: inline-block; padding: 2px 8px; margin-right: 4px;                   /* small box */
+  border-radius: 6px; border: 1px solid var(--line); border-bottom-width: 3px;  /* thicker bottom edge looks like a real key */
+  background: var(--panel-solid); color: var(--text);                           /* dark key, light text */
+  font: 600 .75rem "Segoe UI", system-ui, sans-serif;                          /* small bold text */
+}                                         /* end of the key style */
+
+/* ---------- Check-in questions ---------- */
+.quiz-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }  /* Body/Mind tag left, question number right */
+.section-tag {                            /* the "Body" or "Mind" label */
+  display: inline-block; font-weight: 700; font-size: .8rem; letter-spacing: 1px; text-transform: uppercase;  /* small bold capitals */
+  padding: 4px 12px; border-radius: 999px;                                      /* pill shape */
+}                                         /* end of the label */
+.section-tag.body { background: rgba(92,200,255,.15); color: var(--body); }     /* Body label is blue */
+.section-tag.mind { background: rgba(196,167,255,.15); color: var(--mind); }    /* Mind label is purple */
+.progress { color: var(--muted); font-size: .9rem; }                           /* "Question 3 of 13" text */
+.track { position: relative; height: 6px; margin: 0 0 22px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }  /* the empty progress bar */
+.track .fill {                            /* the filled part of the progress bar */
+  position: absolute; left: 0; top: 0; height: 100%; border-radius: 3px;        /* starts on the left */
+  background: linear-gradient(90deg, var(--body), var(--mind)); transition: width .45s ease;  /* blue-purple; grows smoothly */
+}                                         /* end of the fill */
+.question { font-size: 1.45rem; line-height: 1.45; min-height: 3.2em; margin: 0 0 18px; }  /* the question text: big and readable */
+.dial { display: flex; align-items: center; justify-content: center; gap: 28px; }  /* the ◀ number ▶ row */
+.dial .arrow { font-size: 1.6rem; color: var(--muted); }                        /* the arrows */
+.dial .value { font-size: 4.2rem; font-weight: 800; min-width: 2ch; text-align: center; transition: color .2s; }  /* the big rating number */
+.value.low { color: var(--calm); }        /* ratings 1-3 are green */
+.value.mid { color: var(--warn); }        /* ratings 4-6 are yellow */
+.value.high { color: var(--danger); }     /* ratings 7-10 are red */
+.pop { animation: pop .18s ease-out; }    /* the number pops when it changes */
+@keyframes pop { from { transform: scale(1.15); } to { transform: scale(1); } }  /* the pop movement */
+.dots { display: flex; gap: 6px; justify-content: center; margin: 12px 0 6px; }  /* the row of 10 rating bars */
+.dots span { width: 26px; height: 10px; border-radius: 5px; background: rgba(255,255,255,.1); transition: background .15s; }  /* each bar (grey when off) */
+.dots span.low { background: var(--calm); }     /* bars 1-3 light up green */
+.dots span.mid { background: var(--warn); }     /* bars 4-6 light up yellow */
+.dots span.high { background: var(--danger); }  /* bars 7-10 light up red */
+.ends { display: flex; justify-content: space-between; color: var(--muted); font-size: .85rem; }  /* "1 = not at all" ... "10 = the worst" */
+
+/* ---------- Results ---------- */
+.summary {                                /* the top box with the level and the score bars */
+  display: grid; grid-template-columns: 1fr 1.4fr; gap: 22px; align-items: center;  /* level on the left, bars on the right */
+  padding: 18px 20px; margin-bottom: 16px;                                      /* space inside and below */
+  border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04);  /* rounded faint box */
+}                                         /* end of the summary */
+.summary .eyebrow { margin-bottom: 4px; } /* smaller gap under the label */
+.level { font-size: 1.5rem; font-weight: 800; margin: 0; line-height: 1.25; }   /* "Green: doing well" etc. */
+.meters { display: grid; gap: 12px; }     /* the Body and Mind bars stacked */
+.meter-row { display: grid; grid-template-columns: 3.5em 1fr 3em; align-items: center; gap: 10px; font-size: .95rem; }  /* label, bar, percent */
+.meter { height: 12px; background: rgba(255,255,255,.08); border-radius: 6px; overflow: hidden; }  /* the empty score bar */
+.meter span { display: block; height: 100%; width: 0; border-radius: 6px; transition: width .9s ease-out; }  /* the filled part; grows smoothly */
+.meter.body span { background: linear-gradient(90deg, #2b9fd9, var(--body)); }  /* Body bar is blue */
+.meter.mind span { background: linear-gradient(90deg, #8f6bf0, var(--mind)); }  /* Mind bar is purple */
+.meter-row .pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }  /* the percent number */
+.alert {                                  /* red urgent warning boxes */
+  border: 1px solid rgba(248,113,113,.5); background: rgba(248,113,113,.1);     /* red border and faint red background */
+  padding: 12px 14px; border-radius: 12px; margin-bottom: 12px; line-height: 1.5;  /* spacing */
+}                                         /* end of the alert */
+.block { margin-bottom: 16px; }           /* a section of the results screen */
+.block-title { text-transform: uppercase; letter-spacing: 1.2px; font-size: .72rem; font-weight: 700; color: var(--muted); margin: 0 0 8px; }  /* small section labels */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: step; }  /* the next-steps list; starts counting at 1 */
+.steps li { counter-increment: step; display: flex; gap: 10px; align-items: flex-start; line-height: 1.45; font-size: .95rem; }  /* each step adds 1 to the count */
+.steps li::before {                       /* the round number in front of each step */
+  content: counter(step); flex-shrink: 0; /* shows the step number */
+  width: 22px; height: 22px; border-radius: 50%; margin-top: 1px;              /* a small circle */
+  display: grid; place-items: center; font-size: .75rem; font-weight: 700;      /* centered bold number */
+  background: rgba(92,200,255,.15); color: var(--body);                         /* blue circle */
+}                                         /* end of the step number */
+
+/* ---------- Conversations with ASTRO ---------- */
+.chat {                                   /* a list of chat messages */
+  display: flex; flex-direction: column; gap: 10px;                             /* messages stacked with space between */
+  max-height: 34vh; overflow-y: auto;     /* scrolls when there are many messages */
+  padding: 4px 2px; margin-bottom: 16px;  /* spacing */
+}                                         /* end of the chat */
+.chat:empty { display: none; }            /* hides the chat area when it has no messages */
+.advice .chat {                           /* the "ASTRO's advice" box on the results screen */
+  max-height: 26vh; margin: 0; padding: 12px;                                   /* a bit shorter */
+  border-radius: 14px; border: 1px solid rgba(92,200,255,.25); background: rgba(92,200,255,.05);  /* faint blue box */
+}                                         /* end of the advice box */
+.msg { margin: 0; line-height: 1.55; padding: 12px 14px; border-radius: 14px; max-width: 92%; animation: rise .25s ease-out; }  /* each message bubble */
+.msg.ai { background: rgba(92,200,255,.1); border: 1px solid rgba(92,200,255,.25); align-self: flex-start; border-bottom-left-radius: 4px; }  /* ASTRO's bubbles: blue, on the left */
+.msg.ai::before { content: "ASTRO: "; font-weight: 700; color: var(--body); }   /* writes "ASTRO:" before its messages */
+.msg.you { background: rgba(196,167,255,.14); border: 1px solid rgba(196,167,255,.3); align-self: flex-end; border-bottom-right-radius: 4px; }  /* your bubbles: purple, on the right */
+.msg.you::before { content: "You: "; font-weight: 700; color: var(--mind); }    /* writes "You:" before your messages */
+.msg.wait { color: var(--muted); }        /* the grey "Thinking" message */
+.msg.wait::after { content: ""; display: inline-block; width: 1em; animation: dots 1.2s steps(4) infinite; overflow: hidden; vertical-align: bottom; }  /* animated "..." after Thinking */
+@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }  /* the dots appear one by one */
+
+/* ---------- Talk to ASTRO (typing) ---------- */
+.talk-log {                               /* the chat history box */
+  max-height: 46vh; min-height: 220px; margin-bottom: 14px; padding: 14px;      /* tall enough for a conversation */
+  border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.03);  /* faint box */
+}                                         /* end of the chat box */
+.talk-log:empty { display: flex; }        /* keeps the box visible even before the first message */
+.talk-box {                               /* the typing box */
+  display: flex; gap: 10px; align-items: center;                                /* text field and "Enter" label in one row */
+  padding: 6px 6px 6px 16px; border-radius: 14px;                               /* rounded */
+  border: 2px solid var(--line); background: var(--panel-solid);                /* solid dark box */
+  transition: border-color .2s, box-shadow .2s;                                 /* smooth glow when you click it */
+}                                         /* end of the typing box */
+.talk-box:focus-within { border-color: var(--body); box-shadow: 0 0 0 4px rgba(92,200,255,.15); }  /* glows blue while you type */
+.talk-box input {                         /* the text field itself */
+  flex: 1; min-width: 0; background: transparent; border: 0; outline: 0;        /* fills the box; no default border */
+  color: var(--text); font: inherit; padding: 10px 0;                           /* same font as the page */
+}                                         /* end of the text field */
+.talk-box input::placeholder { color: var(--muted); }                           /* the grey hint text */
+.talk-box input:disabled { opacity: .5; } /* faded while ASTRO is thinking */
+.talk-send {                              /* the "Enter ⏎" label */
+  padding: 9px 16px; border-radius: 10px; font-weight: 800; white-space: nowrap;  /* bold pill */
+  background: linear-gradient(135deg, var(--body), var(--mind)); color: #06101f;  /* blue-purple fade */
+}                                         /* end of the label */
+.talk-hint { color: var(--muted); font-size: .85rem; margin: 10px 2px 0; }      /* the hint under the typing box */
+
+/* ---------- Mental health topics ---------- */
+.answer { line-height: 1.65; margin-bottom: 18px; }                             /* topic text with comfortable line spacing */
+.answer p { margin: 0 0 12px; }           /* space between paragraphs */
+.answer ul { margin: 0 0 12px; padding-left: 0; list-style: none; display: grid; gap: 8px; }  /* tip lists without default bullets */
+.answer li { padding: 10px 14px 10px 38px; border-radius: 10px; background: rgba(110,231,183,.08); position: relative; }  /* each tip in a soft green box */
+.answer li::before { content: "✓"; position: absolute; left: 14px; color: var(--calm); font-weight: 700; }  /* green tick in front of each tip */
+.answer.urgent li { background: rgba(248,113,113,.1); }                         /* "hard time" topic: red boxes */
+.answer.urgent li::before { content: "•"; color: var(--danger); font-size: 1.2rem; line-height: 1.3; }  /* red dot instead of a tick */
+
+/* ---------- Guided breathing ---------- */
+.breathe-wrap { display: grid; place-items: center; padding: 20px 0 10px; }     /* centers the breathing circle */
+.circle {                                 /* the circle that grows and shrinks */
+  width: 220px; height: 220px; border-radius: 50%;                              /* a big circle */
+  display: grid; place-items: center; text-align: center;                       /* text in the middle */
+  background: radial-gradient(circle at 35% 30%, rgba(110,231,183,.55), rgba(92,200,255,.25));  /* green-blue glow */
+  border: 2px solid rgba(110,231,183,.6); /* green edge */
+  box-shadow: 0 0 60px rgba(110,231,183,.25), 0 0 0 18px rgba(110,231,183,.06), 0 0 0 36px rgba(110,231,183,.03);  /* soft glowing rings */
+  transform: scale(.55);                  /* starts small (breathed out) */
+}                                         /* end of the circle */
+.circle span { font-size: 1.4rem; font-weight: 700; transform: scale(1.4); }    /* "Breathe in" / "Hold" / "Breathe out" text */
+.breathe-count { color: var(--muted); margin-top: 18px; text-align: center; }   /* the breath counter */
+
+/* ---------- 5-4-3-2-1 grounding exercise ---------- */
+.ground { text-align: center; padding: 6px 0; }                                 /* everything centered */
+.ground .g-icon { font-size: 4.5rem; font-weight: 800; line-height: 1; color: var(--calm); display: inline-block; }  /* the big number (5, 4, 3...) */
+.ground .g-text { font-size: 1.4rem; margin: 14px 0 18px; }                     /* "Notice 5 things you can see" */
+.ground .g-text b { color: var(--calm); } /* the number and sense in green */
+.g-dots { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; } /* the row of circles to fill */
+.g-dots span { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); transition: all .2s; }  /* each empty circle */
+.g-dots span.done { background: var(--calm); border-color: var(--calm); box-shadow: 0 0 12px rgba(110,231,183,.4); }  /* filled green circle */
+.g-steps { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; color: var(--muted); font-size: .9rem; }  /* "5 see · 4 touch..." row */
+.g-steps span.on { color: var(--calm); font-weight: 700; }                      /* the current sense in bold green */
+.g-steps span.past { color: var(--text); }                                      /* finished senses in white */
+
+/* ---------- Notice at the top of the screen ---------- */
+.toast {                                  /* a small message that slides down from the top */
+  position: fixed; left: 50%; top: 18px; z-index: 10; pointer-events: none;     /* stays at the top center, above everything */
+  transform: translate(-50%, -20px); opacity: 0;                                /* hidden and slightly up by default */
+  padding: 12px 20px; border-radius: 14px; font-weight: 600;                    /* rounded, bold */
+  background: var(--panel-solid); border: 1px solid var(--body); color: var(--text);  /* dark with a blue border */
+  box-shadow: 0 10px 30px rgba(0,0,0,.45); transition: all .3s ease;            /* shadow; smooth slide */
+}                                         /* end of the notice */
+.toast.show { opacity: 1; transform: translate(-50%, 0); }                      /* visible: slides into place */
+
+/* ---------- NASA data explorer ---------- */
+.nasa-facts {                             /* the "What NASA research says" box */
+  margin-bottom: 16px; padding: 14px 16px; border-radius: 14px;                 /* spacing and rounded corners */
+  border: 1px solid rgba(110,231,183,.35); background: rgba(110,231,183,.06);   /* soft green box */
+}                                         /* end of the facts box */
+.nasa-facts ul { margin: 0; padding-left: 20px; line-height: 1.55; display: grid; gap: 4px; }  /* the list of NASA facts */
+.nasa-status { color: var(--muted); font-size: .9rem; margin: 14px 2px 10px; }  /* "Searching data.nasa.gov..." text */
+.nasa-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: 42vh; overflow-y: auto; }  /* the list of datasets; scrolls */
+.nasa-results li { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(26, 49, 80, .6); }  /* each dataset card */
+.nasa-title { font-weight: 700; margin-bottom: 4px; line-height: 1.35; }        /* the dataset's title */
+.nasa-desc { color: var(--muted); font-size: .9rem; line-height: 1.5; margin-bottom: 6px; }  /* the dataset's short description */
+.nasa-meta { color: var(--body); font-size: .8rem; word-break: break-all; }     /* file types and link in blue */
+.nasa-results li.sel { border-color: var(--body); background: linear-gradient(90deg, rgba(92,200,255,.22), rgba(92,200,255,.06)); box-shadow: 0 0 0 3px rgba(92,200,255,.15); }  /* the dataset picked with ↑ / ↓ glows blue */
+.nasa-details { max-height: 52vh; overflow-y: auto; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--line); background: rgba(26, 49, 80, .45); }  /* one dataset's details box; scrolls */
+.nasa-dtitle { font-size: 1.2rem; margin: 0 0 10px; line-height: 1.35; }        /* the open dataset's title */
+.nasa-row { font-size: .9rem; margin-bottom: 4px; line-height: 1.45; word-break: break-word; }  /* "Published by: ..." lines */
+.nasa-row b { color: var(--muted); font-weight: 600; }                          /* the grey labels in those lines */
+.nasa-details .nasa-desc { margin: 12px 0 14px; }                               /* space around the longer description */
+.nasa-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }  /* the list of data files */
+.nasa-files li { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.04); }  /* each data file */
+
+/* ---------- Music ---------- */
+.music-list li { align-items: flex-start; }      /* icon lines up with the track title */
+.music-title { font-weight: 600; }               /* the track title */
+.music-desc { color: var(--muted); font-size: .85rem; font-weight: 400; margin-top: 2px; line-height: 1.4; }  /* the track description */
+.music-list li.playing { border-color: var(--calm); }   /* the playing track has a green border */
+.music-list li.playing .ic { color: var(--calm); }      /* and a green ▶ icon */
+.music-now { color: var(--muted); margin: 14px 2px 0; display: flex; align-items: center; gap: 10px; }  /* the "Now playing" line */
+.eq { display: inline-flex; gap: 3px; align-items: flex-end; height: 16px; }  /* the little music bars */
+.eq span { width: 4px; height: 4px; background: var(--calm); border-radius: 2px; }  /* each bar (small when stopped) */
+.eq.on span { animation: eq .9s ease-in-out infinite; }  /* the bars bounce while music plays */
+.eq.on span:nth-child(2) { animation-delay: .15s; }      /* each bar bounces at a different time... */
+.eq.on span:nth-child(3) { animation-delay: .3s; }       /* ...so they look like... */
+.eq.on span:nth-child(4) { animation-delay: .45s; }      /* ...a music... */
+.eq.on span:nth-child(5) { animation-delay: .6s; }       /* ...equalizer */
+@keyframes eq { 0%, 100% { height: 4px; } 50% { height: 16px; } }  /* the bounce: short to tall and back */
+.music-pill { display: none; font-size: .8rem; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(110,231,183,.45); color: var(--calm); white-space: nowrap; }  /* the "♪ song" badge in the top bar */
+.music-pill.on { display: inline-block; }        /* shown only while music plays */
+.buddy.swaying .bot { animation: sway 4s ease-in-out infinite; }  /* ASTRO sways gently to calm music */
+.buddy.dancing .bot { animation: dance .55s ease-in-out infinite; }  /* ASTRO dances to fun music */
+@keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }  /* the gentle sway */
+@keyframes dance { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-8px) rotate(8deg); } }  /* the bouncy dance */
+
+/* ---------- Accessibility and small screens ---------- */
+@media (prefers-reduced-motion: reduce) { /* if the user turned off animations on their computer... */
+  *, *::before, *::after { animation: none !important; transition: none !important; }  /* ...switch off all animations */
+}                                         /* end of reduced motion */
+@media (max-width: 560px) {               /* on small screens (under 560px wide)... */
+  body { font-size: 16px; }               /* ...slightly smaller text */
+  .panel { padding: 20px; }               /* ...less padding in boxes */
+  .status { display: none; }              /* ...hide the connection badge */
+  .summary { grid-template-columns: 1fr; gap: 14px; }   /* ...stack the results summary */
+  .menu.compact { grid-template-columns: 1fr; }         /* ...one-column results menu */
+}                                         /* end of small screens */
